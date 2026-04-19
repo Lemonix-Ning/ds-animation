@@ -43,6 +43,7 @@ export function dijkstra(graph: Graph, startId: string): GraphFrame[] {
   frames.push({
     type: 'reset',
     description: `Dijkstra最短路径算法 - 起点: ${startId}。使用贪心策略，每次选择距离最小的未访问节点`,
+    highlightLine: 5,
     data: { distances: Object.fromEntries(dist) }
   })
   
@@ -50,6 +51,7 @@ export function dijkstra(graph: Graph, startId: string): GraphFrame[] {
     type: 'visit-node',
     nodeId: startId,
     distance: 0,
+    highlightLine: 6,
     description: `步骤0: 初始化 - 起点${startId}距离设为0，其余所有节点距离初始化为∞（表示不可达）`,
     data: { distances: Object.fromEntries(dist) }
   })
@@ -75,6 +77,7 @@ export function dijkstra(graph: Graph, startId: string): GraphFrame[] {
       type: 'visit-node',
       nodeId: minNode,
       distance: minDist,
+      highlightLine: 20,
       description: `步骤${step}: 从未访问节点中选择距离最小的节点${minNode}(dist=${minDist})，标记为已访问，开始松弛操作`,
       data: { distances: Object.fromEntries(dist), visited: Array.from(visited) }
     })
@@ -98,6 +101,7 @@ export function dijkstra(graph: Graph, startId: string): GraphFrame[] {
         fromNode: minNode,
         toNode: neighborId,
         weight: edge.weight,
+        highlightLine: 24,
         description: `步骤${step}: 检查从${minNode}到邻居${neighborId}的边，权重=${edge.weight}，尝试松弛操作`
       })
       
@@ -109,6 +113,7 @@ export function dijkstra(graph: Graph, startId: string): GraphFrame[] {
           type: 'update-distance',
           nodeId: neighborId,
           distance: newDist,
+          highlightLine: 31,
           description: `步骤${step}: 松弛成功！更新dist[${neighborId}] = dist[${minNode}] + weight = ${minDist} + ${edge.weight} = ${newDist} < ${oldDist === Infinity ? '∞' : oldDist}（经过${minNode}更短）`,
           data: { distances: Object.fromEntries(dist) }
         })
@@ -116,6 +121,7 @@ export function dijkstra(graph: Graph, startId: string): GraphFrame[] {
         frames.push({
           type: 'highlight',
           nodeId: neighborId,
+          highlightLine: 31,
           description: `步骤${step}: 松弛失败，dist[${neighborId}] = ${oldDist === Infinity ? '∞' : oldDist}保持不变，因为${newDist} >= ${oldDist}（经过${minNode}不会更短）`
         })
       }
@@ -124,6 +130,7 @@ export function dijkstra(graph: Graph, startId: string): GraphFrame[] {
   
   frames.push({
     type: 'reset',
+    highlightLine: 37,
     description: `Dijkstra完成！最短距离: ${Array.from(dist).map(([k, v]) => `${k}:${v === Infinity ? '∞' : v}`).join(', ')}`,
     data: { distances: Object.fromEntries(dist), previous: Object.fromEntries(prev) }
   })
@@ -144,6 +151,7 @@ export function prim(graph: Graph, startId: string): GraphFrame[] {
   
   frames.push({
     type: 'reset',
+    highlightLine: 1,
     description: `Prim最小生成树算法 - 起点: ${startId}。从一个节点开始，每次选择连接树内外的最小权重边`
   })
   
@@ -151,6 +159,7 @@ export function prim(graph: Graph, startId: string): GraphFrame[] {
   frames.push({
     type: 'visit-node',
     nodeId: startId,
+    highlightLine: 2,
     description: `步骤1: 初始化 - 将起始节点${startId}加入最小生成树MST，当前树中有${inMST.size}个节点`,
     data: { inMST: Array.from(inMST) }
   })
@@ -183,6 +192,7 @@ export function prim(graph: Graph, startId: string): GraphFrame[] {
       fromNode: minEdge.from,
       toNode: minEdge.to,
       weight: minEdge.weight,
+      highlightLine: 14,
       description: `步骤${step}: 扫描所有连接树内外的边，找到最小权重边: ${minEdge.from}-${minEdge.to}(权重=${minEdge.weight})`
     })
     
@@ -196,12 +206,14 @@ export function prim(graph: Graph, startId: string): GraphFrame[] {
       fromNode: minEdge.from,
       toNode: minEdge.to,
       weight: minEdge.weight,
+      highlightLine: 21,
       description: `步骤${step}: 选择边${minEdge.from}-${minEdge.to}加入MST，将新节点${newNode}加入树，树中现有${inMST.size}个节点`,
       data: { inMST: Array.from(inMST), mstEdges: mstEdges.map(e => e.id) }
     })
     
     frames.push({
       type: 'highlight',
+      highlightLine: 22,
       description: `步骤${step}: 已选择${mstEdges.length}条边，当前MST总权值 = ${totalWeight}`,
       data: { mstEdges: mstEdges.map(e => e.id), totalWeight }
     })
@@ -210,6 +222,7 @@ export function prim(graph: Graph, startId: string): GraphFrame[] {
   
   frames.push({
     type: 'reset',
+    highlightLine: 25,
     description: `Prim算法完成！最小生成树权值: ${totalWeight}`,
     data: { mstEdges: mstEdges.map(e => e.id), totalWeight }
   })
@@ -264,11 +277,13 @@ export function kruskal(graph: Graph): GraphFrame[] {
   
   frames.push({
     type: 'reset',
+    highlightLine: 18,
     description: `Kruskal最小生成树算法 - 将所有边按权值排序，依次选择不形成环的最小边。使用并查集检测环`
   })
   
   frames.push({
     type: 'highlight',
+    highlightLine: 3,
     description: `步骤1: 初始化并查集 - 每个节点自成一个集合，共${nodes.length}个独立集合`
   })
   
@@ -277,6 +292,7 @@ export function kruskal(graph: Graph): GraphFrame[] {
   
   frames.push({
     type: 'highlight',
+    highlightLine: 18,
     description: `步骤2: 边按权值从小到大排序: ${sortedEdges.map(e => `${e.from}-${e.to}(${e.weight})`).join(', ')}`
   })
   
@@ -293,6 +309,7 @@ export function kruskal(graph: Graph): GraphFrame[] {
       fromNode: edge.from,
       toNode: edge.to,
       weight: edge.weight,
+      highlightLine: 21,
       description: `步骤${step}: 检查边${edge.from}-${edge.to}(权重=${edge.weight})，使用并查集判断${edge.from}和${edge.to}是否在同一集合`
     })
     
@@ -306,11 +323,13 @@ export function kruskal(graph: Graph): GraphFrame[] {
         fromNode: edge.from,
         toNode: edge.to,
         weight: edge.weight,
+        highlightLine: 22,
         description: `步骤${step}: ${edge.from}和${edge.to}不在同一集合，选择此边不会形成环！合并两个集合，已选${mstEdges.length}条边`
       })
       
       frames.push({
         type: 'highlight',
+        highlightLine: 24,
         description: `步骤${step}: MST当前总权值 = ${totalWeight}，还需${nodes.length - 1 - mstEdges.length}条边`,
         data: { mstEdges: mstEdges.map(e => e.id), totalWeight }
       })
@@ -320,6 +339,7 @@ export function kruskal(graph: Graph): GraphFrame[] {
     } else {
       frames.push({
         type: 'highlight',
+        highlightLine: 13,
         description: `步骤${step}: ${edge.from}和${edge.to}已在同一集合，选择此边会形成环，跳过！`,
         data: { mstEdges: mstEdges.map(e => e.id) }
       })
@@ -329,6 +349,7 @@ export function kruskal(graph: Graph): GraphFrame[] {
     if (false) {
       frames.push({
         type: 'highlight',
+        highlightLine: 13,
         description: `跳过边 ${edge.from} - ${edge.to}，会形成环`
       })
     }
@@ -336,6 +357,7 @@ export function kruskal(graph: Graph): GraphFrame[] {
   
   frames.push({
     type: 'reset',
+    highlightLine: 28,
     description: `Kruskal算法完成！最小生成树权值: ${totalWeight}`,
     data: { mstEdges: mstEdges.map(e => e.id), totalWeight }
   })
@@ -353,6 +375,7 @@ export function dfs(graph: Graph, startId: string): GraphFrame[] {
   
   frames.push({
     type: 'reset',
+    highlightLine: 1,
     description: `深度优先搜索：从节点 ${startId} 开始`
   })
   
@@ -363,6 +386,7 @@ export function dfs(graph: Graph, startId: string): GraphFrame[] {
     frames.push({
       type: 'visit-node',
       nodeId: nodeId,
+      highlightLine: 6,
       description: `访问节点 ${nodeId}，遍历序列: [${order.join(', ')}]`
     })
     
@@ -377,6 +401,7 @@ export function dfs(graph: Graph, startId: string): GraphFrame[] {
           type: 'visit-edge',
           fromNode: nodeId,
           toNode: neighbor,
+          highlightLine: 13,
           description: `沿边 ${nodeId} → ${neighbor} 深入`
         })
         dfsVisit(neighbor)
@@ -388,6 +413,7 @@ export function dfs(graph: Graph, startId: string): GraphFrame[] {
   
   frames.push({
     type: 'reset',
+    highlightLine: 19,
     description: `DFS完成！遍历序列: [${order.join(', ')}]`
   })
   
@@ -407,6 +433,7 @@ export function bfs(graph: Graph, startId: string): GraphFrame[] {
   
   frames.push({
     type: 'reset',
+    highlightLine: 6,
     description: `广度优先搜索：从节点 ${startId} 开始`
   })
   
@@ -417,6 +444,7 @@ export function bfs(graph: Graph, startId: string): GraphFrame[] {
     frames.push({
       type: 'visit-node',
       nodeId: nodeId,
+      highlightLine: 7,
       description: `访问节点 ${nodeId}，遍历序列: [${order.join(', ')}]`
     })
     
@@ -434,6 +462,7 @@ export function bfs(graph: Graph, startId: string): GraphFrame[] {
           type: 'visit-edge',
           fromNode: nodeId,
           toNode: neighbor,
+          highlightLine: 16,
           description: `发现邻居 ${neighbor}，加入队列`
         })
       }
@@ -442,6 +471,7 @@ export function bfs(graph: Graph, startId: string): GraphFrame[] {
   
   frames.push({
     type: 'reset',
+    highlightLine: 22,
     description: `BFS完成！遍历序列: [${order.join(', ')}]`
   })
   

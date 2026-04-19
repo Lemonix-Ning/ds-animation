@@ -277,6 +277,12 @@ export interface HuffmanNode extends TreeNode {
   char?: string
 }
 
+interface AVLNode extends TreeNode {
+  height: number
+  left: AVLNode | null
+  right: AVLNode | null
+}
+
 export function buildHuffmanTree(weights: { char: string, weight: number }[]): TreeFrame[] {
   const frames: TreeFrame[] = []
   
@@ -429,6 +435,561 @@ export function generateHuffmanCodes(root: HuffmanNode | null): Map<string, stri
   return codes
 }
 
+function avlHeight(node: AVLNode | null): number {
+  return node?.height ?? 0
+}
+
+function updateAVLHeight(node: AVLNode): void {
+  node.height = Math.max(avlHeight(node.left), avlHeight(node.right)) + 1
+}
+
+function avlBalanceFactor(node: AVLNode | null): number {
+  if (!node) return 0
+  return avlHeight(node.left) - avlHeight(node.right)
+}
+
+function cloneAVLTree(node: AVLNode | null): AVLNode | null {
+  if (!node) return null
+  return {
+    id: node.id,
+    value: node.value,
+    height: node.height,
+    left: cloneAVLTree(node.left),
+    right: cloneAVLTree(node.right)
+  }
+}
+
+function collectAVLNodes(node: AVLNode | null): AVLNode[] {
+  if (!node) return []
+  return [node, ...collectAVLNodes(node.left), ...collectAVLNodes(node.right)]
+}
+
+function rotateRight(y: AVLNode): AVLNode {
+  const x = y.left as AVLNode
+  const t2 = x.right
+
+  x.right = y
+  y.left = t2
+
+  updateAVLHeight(y)
+  updateAVLHeight(x)
+  return x
+}
+
+function rotateLeft(x: AVLNode): AVLNode {
+  const y = x.right as AVLNode
+  const t2 = y.left
+
+  y.left = x
+  x.right = t2
+
+  updateAVLHeight(x)
+  updateAVLHeight(y)
+  return y
+}
+
+/**
+ * AVL 树插入与自平衡演示（LL/RR/LR/RL）
+ */
+export function avlInsertSequence(values: number[]): TreeFrame[] {
+  const frames: TreeFrame[] = []
+  let root: AVLNode | null = null
+
+  frames.push({
+    type: 'reset',
+    nodeId: '',
+    description: '开始 AVL 构建与平衡演示'
+  })
+
+  function pushSnapshot(type: TreeFrame['type'], description: string, nodeId: string | number = '', selected?: string[]) {
+    frames.push({
+      type,
+      nodeId,
+      description,
+      data: {
+        root: cloneAVLTree(root),
+        nodes: collectAVLNodes(root),
+        selected: selected || []
+      }
+    })
+  }
+
+  function insert(node: AVLNode | null, value: number): AVLNode {
+    if (!node) {
+      const newNode: AVLNode = {
+        id: `node-${value}`,
+        value,
+        height: 1,
+        left: null,
+        right: null
+      }
+      pushSnapshot('insert', `插入节点 ${value}`, newNode.id, [newNode.id])
+      return newNode
+    }
+
+    pushSnapshot('visit', `比较 ${value} 与节点 ${node.value}`, node.id, [String(node.id)])
+
+    if (value < node.value) {
+      node.left = insert(node.left, value)
+    } else if (value > node.value) {
+      node.right = insert(node.right, value)
+    } else {
+      pushSnapshot('highlight', `节点 ${value} 已存在，跳过重复插入`, node.id, [String(node.id)])
+      return node
+    }
+
+    updateAVLHeight(node)
+    const balance = avlBalanceFactor(node)
+
+    // LL
+    if (balance > 1 && value < (node.left as AVLNode).value) {
+      pushSnapshot('highlight', `触发 LL 失衡，右旋节点 ${node.value}`, node.id, [String(node.id), String((node.left as AVLNode).id)])
+      return rotateRight(node)
+    }
+
+    // RR
+    if (balance < -1 && value > (node.right as AVLNode).value) {
+      pushSnapshot('highlight', `触发 RR 失衡，左旋节点 ${node.value}`, node.id, [String(node.id), String((node.right as AVLNode).id)])
+      return rotateLeft(node)
+    }
+
+    // LR
+    if (balance > 1 && value > (node.left as AVLNode).value) {
+      pushSnapshot('highlight', `触发 LR 失衡，先左旋 ${node.left?.value} 再右旋 ${node.value}`, node.id, [String(node.id), String((node.left as AVLNode).id)])
+      node.left = rotateLeft(node.left as AVLNode)
+      return rotateRight(node)
+    }
+
+    // RL
+    if (balance < -1 && value < (node.right as AVLNode).value) {
+      pushSnapshot('highlight', `触发 RL 失衡，先右旋 ${node.right?.value} 再左旋 ${node.value}`, node.id, [String(node.id), String((node.right as AVLNode).id)])
+      node.right = rotateRight(node.right as AVLNode)
+      return rotateLeft(node)
+    }
+
+    return node
+  }
+
+  for (const value of values) {
+    if (!Number.isFinite(value)) continue
+    root = insert(root, value)
+    pushSnapshot('highlight', `当前已插入 ${value}，AVL 保持平衡`, root?.id || '')
+  }
+
+  pushSnapshot('reset', `AVL 构建完成，共 ${values.length} 次插入`)
+  return frames
+}
+
+/**
+ * 二叉搜索树（BST）插入
+ */
+export function bstInsert(root: TreeNode | null, value: number): TreeFrame[] {
+  const frames: TreeFrame[] = []
+  
+  frames.push({
+    type: 'reset',
+    nodeId: '',
+    description: `开始插入节点 ${value} 到二叉搜索树`
+  })
+  
+  // 辅助函数：收集所有节点
+  function collectNodes(node: TreeNode | null | undefined): TreeNode[] {
+    if (!node) return []
+    const result = [node]
+    if (node.left) result.push(...collectNodes(node.left))
+    if (node.right) result.push(...collectNodes(node.right))
+    return result
+  }
+  
+  // 如果树为空，创建根节点
+  if (!root) {
+    const newNode: TreeNode = {
+      id: `node-${value}`,
+      value: value
+    }
+    
+    frames.push({
+      type: 'insert',
+      nodeId: newNode.id,
+      value: value,
+      description: `树为空，创建根节点 ${value}`,
+      data: { nodes: [newNode], newNode: newNode.id }
+    })
+    
+    frames.push({
+      type: 'reset',
+      nodeId: newNode.id,
+      description: `插入完成！节点 ${value} 成为根节点`,
+      data: { nodes: [newNode] }
+    })
+    
+    return frames
+  }
+  
+  // 查找插入位置
+  let current: TreeNode | null = root
+  let parent: TreeNode | null = null
+  let isLeftChild = false
+  
+  while (current) {
+    parent = current
+    
+    frames.push({
+      type: 'visit',
+      nodeId: current.id,
+      description: `比较：${value} vs ${current.value}`,
+      data: { nodes: collectNodes(root), current: current.id }
+    })
+    
+    if (value < current.value) {
+      frames.push({
+        type: 'highlight',
+        nodeId: current.id,
+        description: `${value} < ${current.value}，向左子树查找`,
+        data: { nodes: collectNodes(root), current: current.id }
+      })
+      
+      if (!current.left) {
+        isLeftChild = true
+        break
+      }
+      current = current.left ?? null
+    } else if (value > current.value) {
+      frames.push({
+        type: 'highlight',
+        nodeId: current.id,
+        description: `${value} > ${current.value}，向右子树查找`,
+        data: { nodes: collectNodes(root), current: current.id }
+      })
+      
+      if (!current.right) {
+        isLeftChild = false
+        break
+      }
+      current = current.right ?? null
+    } else {
+      frames.push({
+        type: 'highlight',
+        nodeId: current.id,
+        description: `节点 ${value} 已存在，插入失败`,
+        data: { nodes: collectNodes(root), current: current.id }
+      })
+      return frames
+    }
+  }
+  
+  // 创建新节点
+  const newNode: TreeNode = {
+    id: `node-${value}`,
+    value: value
+  }
+  
+  // 插入新节点
+  if (isLeftChild) {
+    parent!.left = newNode
+    frames.push({
+      type: 'insert',
+      nodeId: newNode.id,
+      parentId: parent!.id,
+      value: value,
+      position: 'left',
+      description: `找到插入位置：作为节点 ${parent!.value} 的左子节点`,
+      data: { nodes: collectNodes(root), newNode: newNode.id, parent: parent!.id }
+    })
+  } else {
+    parent!.right = newNode
+    frames.push({
+      type: 'insert',
+      nodeId: newNode.id,
+      parentId: parent!.id,
+      value: value,
+      position: 'right',
+      description: `找到插入位置：作为节点 ${parent!.value} 的右子节点`,
+      data: { nodes: collectNodes(root), newNode: newNode.id, parent: parent!.id }
+    })
+  }
+  
+  frames.push({
+    type: 'reset',
+    nodeId: newNode.id,
+    description: `插入完成！节点 ${value} 已成功插入到树中`,
+    data: { nodes: collectNodes(root) }
+  })
+  
+  return frames
+}
+
+/**
+ * 二叉搜索树（BST）删除
+ */
+export function bstDelete(root: TreeNode | null, value: number): TreeFrame[] {
+  const frames: TreeFrame[] = []
+  
+  frames.push({
+    type: 'reset',
+    nodeId: '',
+    description: `开始删除节点 ${value} 从二叉搜索树`
+  })
+  
+  // 辅助函数：收集所有节点
+  function collectNodes(node: TreeNode | null | undefined): TreeNode[] {
+    if (!node) return []
+    const result = [node]
+    if (node.left) result.push(...collectNodes(node.left))
+    if (node.right) result.push(...collectNodes(node.right))
+    return result
+  }
+  
+  // 辅助函数：查找最小节点
+  function findMin(node: TreeNode): TreeNode {
+    while (node.left) {
+      node = node.left
+    }
+    return node
+  }
+  
+  if (!root) {
+    frames.push({
+      type: 'reset',
+      nodeId: '',
+      description: '树为空，无法删除'
+    })
+    return frames
+  }
+  
+  // 查找要删除的节点
+  let current: TreeNode | null = root
+  let parent: TreeNode | null = null
+  let isLeftChild = false
+  
+  while (current && current.value !== value) {
+    parent = current
+    
+    frames.push({
+      type: 'visit',
+      nodeId: current.id,
+      description: `查找节点：比较 ${value} vs ${current.value}`,
+      data: { nodes: collectNodes(root), current: current.id }
+    })
+    
+    if (value < current.value) {
+      frames.push({
+        type: 'highlight',
+        nodeId: current.id,
+        description: `${value} < ${current.value}，向左子树查找`,
+        data: { nodes: collectNodes(root), current: current.id }
+      })
+      isLeftChild = true
+      current = current.left ?? null
+    } else {
+      frames.push({
+        type: 'highlight',
+        nodeId: current.id,
+        description: `${value} > ${current.value}，向右子树查找`,
+        data: { nodes: collectNodes(root), current: current.id }
+      })
+      isLeftChild = false
+      current = current.right ?? null
+    }
+  }
+  
+  if (!current) {
+    frames.push({
+      type: 'reset',
+      nodeId: '',
+      description: `未找到节点 ${value}，删除失败`
+    })
+    return frames
+  }
+  
+  frames.push({
+    type: 'highlight',
+    nodeId: current.id,
+    description: `找到目标节点 ${value}`,
+    data: { nodes: collectNodes(root), current: current.id }
+  })
+  
+  // 情况1：叶子节点（无子节点）
+  if (!current.left && !current.right) {
+    frames.push({
+      type: 'delete',
+      nodeId: current.id,
+      description: `情况1：节点 ${value} 是叶子节点，直接删除`,
+      data: { nodes: collectNodes(root), deleting: current.id }
+    })
+    
+    if (!parent) {
+      // 删除根节点
+      frames.push({
+        type: 'reset',
+        nodeId: '',
+        description: `删除完成！树变为空`,
+        data: { nodes: [] }
+      })
+    } else if (isLeftChild) {
+      parent.left = null
+      frames.push({
+        type: 'reset',
+        nodeId: '',
+        description: `删除完成！节点 ${value} 已从树中移除`,
+        data: { nodes: collectNodes(root) }
+      })
+    } else {
+      parent.right = null
+      frames.push({
+        type: 'reset',
+        nodeId: '',
+        description: `删除完成！节点 ${value} 已从树中移除`,
+        data: { nodes: collectNodes(root) }
+      })
+    }
+  }
+  // 情况2：只有左子节点
+  else if (!current.right) {
+    frames.push({
+      type: 'delete',
+      nodeId: current.id,
+      description: `情况2：节点 ${value} 只有左子节点，用左子节点替代`,
+      data: { nodes: collectNodes(root), deleting: current.id }
+    })
+    
+    if (!parent) {
+      // 删除根节点
+      frames.push({
+        type: 'reset',
+        nodeId: current.left!.id,
+        description: `删除完成！左子节点 ${current.left!.value} 成为新的根节点`,
+        data: { nodes: collectNodes(current.left) }
+      })
+    } else if (isLeftChild) {
+      parent.left = current.left
+      frames.push({
+        type: 'reset',
+        nodeId: '',
+        description: `删除完成！节点 ${value} 已被其左子节点替代`,
+        data: { nodes: collectNodes(root) }
+      })
+    } else {
+      parent.right = current.left
+      frames.push({
+        type: 'reset',
+        nodeId: '',
+        description: `删除完成！节点 ${value} 已被其左子节点替代`,
+        data: { nodes: collectNodes(root) }
+      })
+    }
+  }
+  // 情况3：只有右子节点
+  else if (!current.left) {
+    frames.push({
+      type: 'delete',
+      nodeId: current.id,
+      description: `情况3：节点 ${value} 只有右子节点，用右子节点替代`,
+      data: { nodes: collectNodes(root), deleting: current.id }
+    })
+    
+    if (!parent) {
+      // 删除根节点
+      frames.push({
+        type: 'reset',
+        nodeId: current.right!.id,
+        description: `删除完成！右子节点 ${current.right!.value} 成为新的根节点`,
+        data: { nodes: collectNodes(current.right) }
+      })
+    } else if (isLeftChild) {
+      parent.left = current.right
+      frames.push({
+        type: 'reset',
+        nodeId: '',
+        description: `删除完成！节点 ${value} 已被其右子节点替代`,
+        data: { nodes: collectNodes(root) }
+      })
+    } else {
+      parent.right = current.right
+      frames.push({
+        type: 'reset',
+        nodeId: '',
+        description: `删除完成！节点 ${value} 已被其右子节点替代`,
+        data: { nodes: collectNodes(root) }
+      })
+    }
+  }
+  // 情况4：有两个子节点
+  else {
+    frames.push({
+      type: 'highlight',
+      nodeId: current.id,
+      description: `情况4：节点 ${value} 有两个子节点，需要找到右子树的最小节点（中序后继）`,
+      data: { nodes: collectNodes(root), current: current.id }
+    })
+    
+    // 找到右子树的最小节点
+    const successor = findMin(current.right)
+    
+    frames.push({
+      type: 'highlight',
+      nodeId: successor.id,
+      description: `找到中序后继：节点 ${successor.value}（右子树的最小值）`,
+      data: { nodes: collectNodes(root), current: current.id, successor: successor.id }
+    })
+    
+    frames.push({
+      type: 'delete',
+      nodeId: current.id,
+      description: `用节点 ${successor.value} 替换节点 ${value}`,
+      data: { nodes: collectNodes(root), deleting: current.id, successor: successor.id }
+    })
+    
+    // 保存后继节点的值
+    const successorValue = successor.value
+    
+    // 递归删除后继节点（后继节点最多只有右子节点）
+    bstDeleteNode(current.right ?? null, successor.value)
+    
+    // 用后继节点的值替换当前节点的值
+    current.value = successorValue
+    
+    frames.push({
+      type: 'reset',
+      nodeId: current.id,
+      description: `删除完成！节点 ${value} 已被替换为 ${successorValue}`,
+      data: { nodes: collectNodes(root) }
+    })
+  }
+  
+  return frames
+}
+
+// 辅助函数：实际删除节点（不生成帧）
+function bstDeleteNode(root: TreeNode | null, value: number): TreeNode | null {
+  if (!root) return null
+  
+  if (value < root.value) {
+    root.left = bstDeleteNode(root.left ?? null, value)
+  } else if (value > root.value) {
+    root.right = bstDeleteNode(root.right ?? null, value)
+  } else {
+    // 找到要删除的节点
+    if (!root.left && !root.right) {
+      return null
+    } else if (!root.right) {
+      return root.left ?? null
+    } else if (!root.left) {
+      return root.right ?? null
+    } else {
+      // 有两个子节点
+      let minNode = root.right!
+      while (minNode.left) {
+        minNode = minNode.left
+      }
+      root.value = minNode.value
+      root.right = bstDeleteNode(root.right ?? null, minNode.value)
+    }
+  }
+  
+  return root
+}
+
 // 算法信息
 export const treeAlgorithms = {
   preorder: {
@@ -465,5 +1026,26 @@ export const treeAlgorithms = {
     description: '带权路径长度最短的二叉树，用于数据压缩',
     timeComplexity: 'O(n log n)',
     spaceComplexity: 'O(n)'
+  },
+  avl: {
+    name: 'AVL 树（自平衡）',
+    nameEn: 'AVL Tree',
+    description: '通过 LL/RR/LR/RL 四种旋转维持平衡因子，保证查找效率',
+    timeComplexity: 'O(log n)',
+    spaceComplexity: 'O(n)'
+  },
+  bstInsert: {
+    name: 'BST插入',
+    nameEn: 'BST Insert',
+    description: '向二叉搜索树中插入新节点，保持左小右大的性质',
+    timeComplexity: 'O(h)',
+    spaceComplexity: 'O(1)'
+  },
+  bstDelete: {
+    name: 'BST删除',
+    nameEn: 'BST Delete',
+    description: '从二叉搜索树中删除节点，分为4种情况处理',
+    timeComplexity: 'O(h)',
+    spaceComplexity: 'O(1)'
   }
 }

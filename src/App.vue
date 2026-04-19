@@ -1,10 +1,16 @@
 <template>
-  <div class="app-container">
+  <div class="app-container" :style="{ '--sidebar-width': isSidebarCollapsed ? '64px' : '220px' }">
     <!-- 侧边栏 -->
-    <aside class="sidebar">
+    <aside class="sidebar" :class="{ collapsed: isSidebarCollapsed }">
       <div class="sidebar-header">
         <h1>数据结构演示</h1>
         <p>Data Structure Animation</p>
+        <el-button class="sidebar-toggle" @click="toggleSidebar" circle>
+          <el-icon>
+            <Fold v-if="!isSidebarCollapsed" />
+            <DataAnalysis v-else />
+          </el-icon>
+        </el-button>
       </div>
       <el-menu
         :default-active="activeMenu"
@@ -70,11 +76,17 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import { Fold, DataAnalysis } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const activeMenu = computed(() => route.path)
+const isSidebarCollapsed = ref(false)
+
+function toggleSidebar() {
+  isSidebarCollapsed.value = !isSidebarCollapsed.value
+}
 </script>
 
 <style scoped>

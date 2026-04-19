@@ -1,8 +1,10 @@
 <template>
   <div class="graph-view">
-    <!-- 头部 -->
     <div class="content-header">
-      <h2>第6章 图</h2>
+      <div class="header-title">
+        <h2>第6章 图</h2>
+        <span class="subtitle">算法可视化演示</span>
+      </div>
       <div class="header-actions">
         <el-select v-model="selectedAlgorithm" style="width: 150px">
           <el-option label="Dijkstra最短路径" value="dijkstra" />
@@ -11,73 +13,78 @@
           <el-option label="深度优先搜索" value="dfs" />
           <el-option label="广度优先搜索" value="bfs" />
         </el-select>
-        <el-button type="primary" @click="runAlgorithm">
-          <el-icon><VideoPlay /></el-icon>
-          开始演示
-        </el-button>
-        <el-button @click="loadPreset">
-          <el-icon><Document /></el-icon>
-          加载示例
-        </el-button>
+        <el-select v-model="selectedPreset" placeholder="选择预设图" style="width: 160px" @change="loadPresetGraph">
+          <el-option 
+            v-for="(preset, index) in currentGraphPresets" 
+            :key="index" 
+            :label="preset.name" 
+            :value="index" 
+          />
+        </el-select>
       </div>
     </div>
-    
-    <!-- 主内容区 -->
+
     <div class="content-body">
-      <el-row :gutter="20">
-        <!-- 左侧：图可视化 -->
-        <el-col :span="16">
-          <!-- 算法信息 -->
-          <div class="info-card">
-            <h3>{{ algorithmInfo.name }}</h3>
-            <span class="name-en">{{ algorithmInfo.nameEn }}</span>
-            <p>{{ algorithmInfo.description }}</p>
-            <div class="complexity">
-              <el-tag>时间: {{ algorithmInfo.timeComplexity }}</el-tag>
-              <el-tag type="success">空间: {{ algorithmInfo.spaceComplexity }}</el-tag>
+      <div class="main-layout">
+        <div class="left-panel">
+          <div class="glass-card">
+            <div class="info-header">
+              <h3>{{ algorithmInfo.name }}</h3>
+              <span class="name-en">{{ algorithmInfo.nameEn }}</span>
+            </div>
+            <p class="description">{{ algorithmInfo.description }}</p>
+            <div class="complexity-tags">
+              <el-tag>时间复杂度: {{ algorithmInfo.timeComplexity }}</el-tag>
+               <el-tag type="success">空间复杂度: {{ algorithmInfo.spaceComplexity }}</el-tag>
             </div>
           </div>
-          
-          <!-- 图画布 -->
-          <div class="animation-container">
+
+          <div class="glass-card animation-container">
+            <h4 class="card-title">图结构可视化</h4>
             <div class="graph-canvas" ref="graphCanvasRef">
-              <!-- SVG 边 -->
               <svg class="graph-edges" :width="canvasWidth" :height="canvasHeight">
                 <g v-for="edge in displayEdges" :key="edge.id">
-                  <line 
-                    :x1="edge.x1" :y1="edge.y1" 
+                  <line
+                    :x1="edge.x1" :y1="edge.y1"
                     :x2="edge.x2" :y2="edge.y2"
-                    :class="{ 
+                    :class="{
                       selected: selectedEdges.has(edge.id),
                       visiting: visitingEdge === edge.id
                     }"
                     stroke="#dcdfe6"
                     stroke-width="2"
                   />
-                  <!-- 权重标签 -->
-                  <text 
-                    :x="(edge.x1 + edge.x2) / 2" 
-                    :y="(edge.y1 + edge.y2) / 2 - 8"
+                  <rect
+                    :x="((edge.x1 + edge.x2) / 2) - 10"
+                    :y="((edge.y1 + edge.y2) / 2) - 18"
+                    width="20"
+                    height="16"
+                    rx="4"
+                    class="edge-weight-bg"
+                  />
+                  <text
+                    :x="(edge.x1 + edge.x2) / 2"
+                    :y="(edge.y1 + edge.y2) / 2 - 6"
                     class="edge-weight"
-                    :class="{ selected: selectedEdges.has(edge.id) }"
+                    :class="{ selected: selectedEdges.has(edge.id), visiting: visitingEdge === edge.id }"
                   >
                     {{ edge.weight }}
                   </text>
                 </g>
               </svg>
-              
-              <!-- 图节点 -->
-              <div 
-                v-for="node in displayNodes" 
+
+              <div
+                v-for="node in displayNodes"
                 :key="node.id"
                 class="graph-node"
-                :class="{ 
+                :class="{
                   visited: visitedNodes.has(node.id),
                   current: currentNodeId === node.id,
                   start: node.id === startNodeId
                 }"
-                :style="{ left: `${node.x}px`, top: `${node.y}px` }"
+                :style="{ left: `${node.x + 25}px`, top: `${node.y + 25}px` }"
               >
+                <span class="start-indicator" v-if="node.id === startNodeId">Start</span>
                 <span class="node-label">{{ node.label }}</span>
                 <span class="node-dist" v-if="distances.has(node.id)">
                   {{ distances.get(node.id) === Infinity ? '∞' : distances.get(node.id) }}
@@ -85,40 +92,14 @@
               </div>
             </div>
           </div>
-          
-          <!-- 步骤信息 -->
-          <div class="info-panel" v-if="currentFrame">
-            <h4>当前步骤</h4>
-            <div class="step-info">
-              <p><strong>操作:</strong> {{ getFrameTypeName(currentFrame.type) }}</p>
-              <p><strong>描述:</strong> {{ currentFrame.description }}</p>
-            </div>
-          </div>
-        </el-col>
-        
-        <!-- 右侧：信息面板 -->
-        <el-col :span="8">
-          <div class="side-panel">
-            <!-- 起点选择 -->
-            <div class="panel-section">
-              <h4>起点选择</h4>
-              <el-select v-model="startNodeId" placeholder="选择起点" style="width: 100%">
-                <el-option 
-                  v-for="node in displayNodes" 
-                  :key="node.id" 
-                  :label="node.label" 
-                  :value="node.id" 
-                />
-              </el-select>
-            </div>
-            
-            <!-- 距离/权值表 -->
-            <div class="panel-section" v-if="distances.size > 0">
-              <h4>{{ selectedAlgorithm === 'dijkstra' ? '最短距离' : '节点状态' }}</h4>
+
+          <div class="data-panels-grid">
+            <div class="glass-card data-card" v-if="distances.size > 0">
+              <h4 class="card-title">{{ selectedAlgorithm === 'dijkstra' ? '距离状态' : '节点状态' }}</h4>
               <el-table :data="distanceTableData" size="small">
                 <el-table-column prop="node" label="节点" width="60" />
                 <el-table-column prop="distance" label="距离" />
-                <el-table-column prop="status" label="状态" width="80">
+                <el-table-column prop="status" label="状态" width="84">
                   <template #default="{ row }">
                     <el-tag :type="row.visited ? 'success' : 'info'" size="small">
                       {{ row.visited ? '已访问' : '未访问' }}
@@ -127,41 +108,86 @@
                 </el-table-column>
               </el-table>
             </div>
-            
-            <!-- 已选边 -->
-            <div class="panel-section" v-if="selectedEdges.size > 0">
-              <h4>已选边</h4>
+
+            <div class="glass-card data-card" v-if="selectedEdges.size > 0">
+              <h4 class="card-title">已选边集合</h4>
               <div class="selected-edges">
-                <el-tag 
-                  v-for="edgeId in selectedEdges" 
+                <el-tag
+                  v-for="edgeId in selectedEdges"
                   :key="edgeId"
                   type="success"
-                  style="margin: 2px"
                 >
                   {{ getEdgeLabel(edgeId) }}
                 </el-tag>
               </div>
-              <p class="total-weight" v-if="totalWeight > 0">
-                总权值: <strong>{{ totalWeight }}</strong>
-              </p>
+              <p class="total-weight" v-if="totalWeight > 0">总权值: <strong>{{ totalWeight }}</strong></p>
             </div>
-            
-            <!-- 遍历序列 -->
-            <div class="panel-section" v-if="traversalOrder.length > 0">
-              <h4>遍历序列</h4>
+
+            <div class="glass-card data-card" v-if="traversalOrder.length > 0">
+              <h4 class="card-title">遍历序列</h4>
               <div class="traversal-order">
-                <span 
-                  v-for="(nodeId, index) in traversalOrder" 
-                  :key="index"
-                  class="order-item"
-                >
-                  {{ getNodeLabel(nodeId) }}
-                </span>
+                <template v-for="(nodeId, index) in traversalOrder" :key="index">
+                  <span class="order-item">{{ getNodeLabel(nodeId) }}</span>
+                  <span class="order-arrow" v-if="index < traversalOrder.length - 1">→</span>
+                </template>
               </div>
             </div>
           </div>
-        </el-col>
-      </el-row>
+
+          <div class="glass-card info-panel">
+            <h4 class="card-title">当前执行步骤</h4>
+            <div class="step-info" v-if="currentFrame">
+              <div class="info-row">
+                <span class="label">操作动作:</span>
+                <el-tag :type="getStepTagType(currentFrame.type)">{{ getFrameTypeName(currentFrame.type) }}</el-tag>
+              </div>
+              <div class="info-row">
+                <span class="label">执行描述:</span>
+                <span class="value">{{ currentFrame.description }}</span>
+              </div>
+            </div>
+            <div class="step-info" v-else>
+              <div class="info-row">
+                <span class="label">操作动作:</span>
+                <el-tag type="info">等待开始</el-tag>
+              </div>
+              <div class="info-row">
+                <span class="label">执行描述:</span>
+                <span class="value">点击“开始演示”生成动画帧</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="right-panel" :class="{ fullscreen: isCodeFullscreen }">
+          <div class="glass-card start-node-card">
+            <h4 class="card-title">算法起点配置</h4>
+            <el-select v-model="startNodeId" placeholder="选择起点" style="width: 100%">
+              <el-option
+                v-for="node in displayNodes"
+                :key="node.id"
+                :label="node.label"
+                :value="node.id"
+              />
+            </el-select>
+          </div>
+
+          <div class="code-editor-wrapper">
+            <CodeEditorPanel
+              :algorithm-code="currentAlgorithmCode"
+              :algorithm-key="selectedAlgorithm"
+              :input-array="[]"
+              :is-playing="isPlaying"
+              :highlight-line="currentHighlightLine"
+              :use-pseudo-code="false"
+              :enable-fullscreen="true"
+              :is-fullscreen="isCodeFullscreen"
+              @toggle-fullscreen="toggleCodeFullscreen"
+              @apply-code="handleApplyCode"
+            />
+          </div>
+        </div>
+      </div>
     </div>
     
     <!-- 控制条 -->
@@ -184,7 +210,9 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { VideoPlay, Document } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import { graphAlgorithmCode } from '../core/algorithmCode'
+import type { AlgorithmCode } from '../core/algorithmCode'
 import { 
   dijkstra, 
   prim, 
@@ -198,10 +226,94 @@ import {
 } from '../core/algorithms/graph'
 import { useAnimationPlayer } from '../core/player/AnimationPlayer'
 import type { GraphFrame } from '../core/types'
+import { graphPresets } from '../core/presets'
 import ControlBar from '../components/common/ControlBar.vue'
+import CodeEditorPanel from '../components/common/CodeEditorPanel.vue'
+
+// 预设图数据
+const graphPresetData: Record<string, { nodes: GraphNode[], edges: GraphEdge[], start: string }> = {
+  standard: {
+    start: 'A',
+    nodes: [
+      { id: 'A', label: 'A' }, { id: 'B', label: 'B' }, { id: 'C', label: 'C' },
+      { id: 'D', label: 'D' }, { id: 'E', label: 'E' }, { id: 'F', label: 'F' }
+    ],
+    edges: [
+      { id: 'AB', from: 'A', to: 'B', weight: 7 }, { id: 'AC', from: 'A', to: 'C', weight: 9 },
+      { id: 'AF', from: 'A', to: 'F', weight: 14 }, { id: 'BC', from: 'B', to: 'C', weight: 10 },
+      { id: 'BD', from: 'B', to: 'D', weight: 15 }, { id: 'CD', from: 'C', to: 'D', weight: 11 },
+      { id: 'CF', from: 'C', to: 'F', weight: 2 }, { id: 'DE', from: 'D', to: 'E', weight: 6 },
+      { id: 'EF', from: 'E', to: 'F', weight: 9 }
+    ]
+  },
+  simple: {
+    start: 'A',
+    nodes: [
+      { id: 'A', label: 'A' }, { id: 'B', label: 'B' },
+      { id: 'C', label: 'C' }, { id: 'D', label: 'D' }
+    ],
+    edges: [
+      { id: 'AB', from: 'A', to: 'B', weight: 4 }, { id: 'AC', from: 'A', to: 'C', weight: 2 },
+      { id: 'BC', from: 'B', to: 'C', weight: 1 }, { id: 'BD', from: 'B', to: 'D', weight: 5 },
+      { id: 'CD', from: 'C', to: 'D', weight: 8 }
+    ]
+  },
+  complex: {
+    start: 'A',
+    nodes: [
+      { id: 'A', label: 'A' }, { id: 'B', label: 'B' }, { id: 'C', label: 'C' },
+      { id: 'D', label: 'D' }, { id: 'E', label: 'E' }, { id: 'F', label: 'F' },
+      { id: 'G', label: 'G' }, { id: 'H', label: 'H' }
+    ],
+    edges: [
+      { id: 'AB', from: 'A', to: 'B', weight: 4 }, { id: 'AH', from: 'A', to: 'H', weight: 8 },
+      { id: 'BC', from: 'B', to: 'C', weight: 8 }, { id: 'BH', from: 'B', to: 'H', weight: 11 },
+      { id: 'CD', from: 'C', to: 'D', weight: 7 }, { id: 'CF', from: 'C', to: 'F', weight: 4 },
+      { id: 'CI', from: 'C', to: 'G', weight: 2 }, { id: 'DE', from: 'D', to: 'E', weight: 9 },
+      { id: 'DF', from: 'D', to: 'F', weight: 14 }, { id: 'EF', from: 'E', to: 'F', weight: 10 },
+      { id: 'FG', from: 'F', to: 'G', weight: 2 }, { id: 'GH', from: 'G', to: 'H', weight: 1 }
+    ]
+  },
+  sparse: {
+    start: 'A',
+    nodes: [
+      { id: 'A', label: 'A' }, { id: 'B', label: 'B' }, { id: 'C', label: 'C' },
+      { id: 'D', label: 'D' }, { id: 'E', label: 'E' }, { id: 'F', label: 'F' },
+      { id: 'G', label: 'G' }
+    ],
+    edges: [
+      { id: 'AB', from: 'A', to: 'B', weight: 3 },
+      { id: 'AC', from: 'A', to: 'C', weight: 7 },
+      { id: 'BD', from: 'B', to: 'D', weight: 4 },
+      { id: 'CE', from: 'C', to: 'E', weight: 2 },
+      { id: 'DF', from: 'D', to: 'F', weight: 6 },
+      { id: 'EG', from: 'E', to: 'G', weight: 5 }
+    ]
+  },
+  branching: {
+    start: 'A',
+    nodes: [
+      { id: 'A', label: 'A' }, { id: 'B', label: 'B' }, { id: 'C', label: 'C' },
+      { id: 'D', label: 'D' }, { id: 'E', label: 'E' }, { id: 'F', label: 'F' },
+      { id: 'G', label: 'G' }, { id: 'H', label: 'H' }
+    ],
+    edges: [
+      { id: 'AB', from: 'A', to: 'B', weight: 1 },
+      { id: 'AC', from: 'A', to: 'C', weight: 1 },
+      { id: 'AD', from: 'A', to: 'D', weight: 1 },
+      { id: 'BE', from: 'B', to: 'E', weight: 2 },
+      { id: 'BF', from: 'B', to: 'F', weight: 3 },
+      { id: 'CG', from: 'C', to: 'G', weight: 2 },
+      { id: 'DH', from: 'D', to: 'H', weight: 4 }
+    ]
+  }
+}
 
 // 状态
 const selectedAlgorithm = ref('dijkstra')
+const isCodeFullscreen = ref(false)
+const selectedPreset = ref(0)
+const userCustomCode = ref<string | null>(null)
 const graphCanvasRef = ref<HTMLElement | null>(null)
 const canvasWidth = ref(600)
 const canvasHeight = ref(400)
@@ -263,6 +375,78 @@ const algorithmInfo = computed(() => {
   return algos[selectedAlgorithm.value] || graphAlgorithms.dijkstra
 })
 
+const fallbackAlgorithmCode: AlgorithmCode = {
+  title: '图算法',
+  language: 'javascript',
+  code: '// 暂无代码'
+}
+
+const currentAlgorithmCode = computed<AlgorithmCode>(() => {
+  const codeMap = graphAlgorithmCode as Record<string, AlgorithmCode>
+  return codeMap[selectedAlgorithm.value] ?? codeMap.dijkstra ?? fallbackAlgorithmCode
+})
+
+const currentGraphPresets = computed(() => {
+  const presets = graphPresets as Record<string, Array<{ name: string, description: string, data: string }>>
+  return presets[selectedAlgorithm.value] || presets.dijkstra || []
+})
+
+const currentHighlightLine = computed(() => {
+  if (!currentFrame.value) return undefined
+  if (currentFrame.value.highlightLine !== undefined) return currentFrame.value.highlightLine
+
+  const frame = currentFrame.value
+  const desc = frame.description || ''
+
+  if (selectedAlgorithm.value === 'dijkstra') {
+    if (frame.type === 'visit-node') return 13
+    if (frame.type === 'visit-edge') return 24
+    if (frame.type === 'update-distance') return 31
+    if (frame.type === 'highlight') return 31
+    if (frame.type === 'reset') return desc.includes('完成') ? 37 : 5
+    return 5
+  }
+
+  if (selectedAlgorithm.value === 'prim') {
+    if (frame.type === 'visit-node') return 2
+    if (frame.type === 'visit-edge') return 14
+    if (frame.type === 'select-edge') return 21
+    if (frame.type === 'highlight') return 22
+    if (frame.type === 'reset') return desc.includes('完成') ? 25 : 1
+    return 1
+  }
+
+  if (selectedAlgorithm.value === 'kruskal') {
+    if (frame.type === 'visit-edge') return 21
+    if (frame.type === 'select-edge') return 22
+    if (frame.type === 'highlight') {
+      if (desc.includes('排序')) return 18
+      if (desc.includes('形成环') || desc.includes('跳过')) return 13
+      return 24
+    }
+    if (frame.type === 'reset') return desc.includes('完成') ? 28 : 18
+    return 18
+  }
+
+  if (selectedAlgorithm.value === 'dfs') {
+    if (frame.type === 'visit-node') return 6
+    if (frame.type === 'visit-edge') return 13
+    if (frame.type === 'highlight') return 13
+    if (frame.type === 'reset') return desc.includes('完成') ? 19 : 1
+    return 1
+  }
+
+  if (selectedAlgorithm.value === 'bfs') {
+    if (frame.type === 'visit-node') return 7
+    if (frame.type === 'visit-edge') return 16
+    if (frame.type === 'highlight') return 16
+    if (frame.type === 'reset') return desc.includes('完成') ? 22 : 6
+    return 6
+  }
+
+  return 0
+})
+
 const distanceTableData = computed(() => {
   return displayNodes.value.map(node => ({
     node: node.label,
@@ -284,6 +468,18 @@ function getFrameTypeName(type: string) {
     reset: '重置'
   }
   return names[type] || type
+}
+
+function getStepTagType(type: string): 'success' | 'warning' | 'danger' | 'info' | 'primary' {
+  const typeMap: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'primary'> = {
+    'visit-node': 'primary',
+    'visit-edge': 'warning',
+    'update-distance': 'success',
+    'select-edge': 'success',
+    highlight: 'info',
+    reset: 'info'
+  }
+  return typeMap[type] || 'info'
 }
 
 // 获取节点标签
@@ -376,37 +572,20 @@ function findEdgeId(from: string, to: string): string | null {
 }
 
 // 加载预设图
-function loadPreset() {
-  const nodes: GraphNode[] = [
-    { id: 'A', label: 'A' },
-    { id: 'B', label: 'B' },
-    { id: 'C', label: 'C' },
-    { id: 'D', label: 'D' },
-    { id: 'E', label: 'E' },
-    { id: 'F', label: 'F' }
-  ]
+function loadPresetGraph() {
+  const selected = currentGraphPresets.value[selectedPreset.value]
+  const key = selected?.data || 'standard'
+  const preset = graphPresetData[key]
+  if (!preset) return
   
-  const edges: GraphEdge[] = [
-    { id: 'AB', from: 'A', to: 'B', weight: 7 },
-    { id: 'AC', from: 'A', to: 'C', weight: 9 },
-    { id: 'AF', from: 'A', to: 'F', weight: 14 },
-    { id: 'BC', from: 'B', to: 'C', weight: 10 },
-    { id: 'BD', from: 'B', to: 'D', weight: 15 },
-    { id: 'CD', from: 'C', to: 'D', weight: 11 },
-    { id: 'CF', from: 'C', to: 'F', weight: 2 },
-    { id: 'DE', from: 'D', to: 'E', weight: 6 },
-    { id: 'EF', from: 'E', to: 'F', weight: 9 }
-  ]
+  graph.value = { nodes: preset.nodes, edges: preset.edges, directed: false }
   
-  graph.value = { nodes, edges, directed: false }
-  
-  // 计算节点位置（圆形布局）
   const centerX = canvasWidth.value / 2
   const centerY = canvasHeight.value / 2
-  const radius = 150
+  const radius = Math.min(canvasWidth.value, canvasHeight.value) * 0.35
   
-  displayNodes.value = nodes.map((node, i) => {
-    const angle = (2 * Math.PI * i) / nodes.length - Math.PI / 2
+  displayNodes.value = preset.nodes.map((node, i) => {
+    const angle = (2 * Math.PI * i) / preset.nodes.length - Math.PI / 2
     return {
       ...node,
       x: centerX + radius * Math.cos(angle) - 25,
@@ -414,21 +593,18 @@ function loadPreset() {
     }
   })
   
-  // 计算边位置
-  displayEdges.value = edges.map(edge => {
+  displayEdges.value = preset.edges.map(edge => {
     const fromNode = displayNodes.value.find(n => n.id === edge.from)!
     const toNode = displayNodes.value.find(n => n.id === edge.to)!
     return {
       ...edge,
-      x1: fromNode.x + 25,
-      y1: fromNode.y + 25,
-      x2: toNode.x + 25,
-      y2: toNode.y + 25
+      x1: fromNode.x + 25, y1: fromNode.y + 25,
+      x2: toNode.x + 25, y2: toNode.y + 25
     }
   })
   
-  startNodeId.value = 'A'
-  resetState()
+  startNodeId.value = preset.start
+  runAlgorithm()
 }
 
 // 重置状态
@@ -448,6 +624,14 @@ function resetState() {
 // 运行算法
 function runAlgorithm() {
   resetState()
+
+  if (userCustomCode.value) {
+    const customFrames = executeUserCode(userCustomCode.value, true)
+    if (customFrames) {
+      load(customFrames)
+      return
+    }
+  }
   
   let frames: GraphFrame[] = []
   
@@ -472,21 +656,108 @@ function runAlgorithm() {
   load(frames)
 }
 
+function handleApplyCode(code: string) {
+  userCustomCode.value = code
+  const customFrames = executeUserCode(code)
+  if (!customFrames) return
+  resetState()
+  load(customFrames)
+}
+
+function executeUserCode(code: string, silent = false): GraphFrame[] | null {
+  try {
+    const wrappedCode = `
+      (function() {
+        ${code}
+
+        const functionNames = [
+          ['dijkstra', 'dijkstra'], ['dijkstra_shortest_path', 'dijkstra'], ['Dijkstra', 'dijkstra'],
+          ['prim', 'prim'], ['prim_mst', 'prim'], ['Prim', 'prim'],
+          ['kruskal', 'kruskal'], ['kruskal_mst', 'kruskal'], ['Kruskal', 'kruskal'],
+          ['dfs', 'dfs'], ['depth_first_search', 'dfs'], ['DepthFirstSearch', 'dfs'],
+          ['bfs', 'bfs'], ['breadth_first_search', 'bfs'], ['BreadthFirstSearch', 'bfs']
+        ]
+        for (const [name, canonical] of functionNames) {
+          try {
+            const fn = eval(name)
+            if (typeof fn === 'function') {
+              return { name: canonical, fn }
+            }
+          } catch (e) {
+            // ignore undefined function
+          }
+        }
+        throw new Error('未找到有效的图算法函数')
+      })()
+    `
+
+    const resultObj = eval(wrappedCode) as { name: string, fn: Function }
+    if (!resultObj || typeof resultObj.fn !== 'function') {
+      if (!silent) ElMessage.error('代码必须定义一个可执行函数')
+      return null
+    }
+
+    const graphInput: Graph = {
+      nodes: graph.value.nodes.map(node => ({ ...node })),
+      edges: graph.value.edges.map(edge => ({ ...edge })),
+      directed: graph.value.directed
+    }
+
+    const result = resultObj.name === 'kruskal'
+      ? resultObj.fn(graphInput)
+      : resultObj.fn(graphInput, startNodeId.value)
+
+    if (!Array.isArray(result)) {
+      if (!silent) ElMessage.error('函数必须返回动画帧数组')
+      return null
+    }
+
+    if (result.length === 0) {
+      if (!silent) ElMessage.error('返回的帧数组为空')
+      return null
+    }
+
+    if (!result[0] || typeof result[0].type !== 'string') {
+      if (!silent) ElMessage.error('帧数组格式不正确，缺少 type 字段')
+      return null
+    }
+
+    return result as GraphFrame[]
+  } catch (error) {
+    if (!silent) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      ElMessage.error(`代码执行失败: ${errorMessage}`)
+    }
+    return null
+  }
+}
+
+function toggleCodeFullscreen() {
+  isCodeFullscreen.value = !isCodeFullscreen.value
+}
+
 // 重置
 function reset() {
   stop()
-  resetState()
+  runAlgorithm()
 }
 
 // 监听算法变化
 watch(selectedAlgorithm, () => {
-  resetState()
+  userCustomCode.value = null
+  selectedPreset.value = 0
+  loadPresetGraph()
+})
+
+watch(startNodeId, () => {
+  if (graph.value.nodes.length === 0) return
+  runAlgorithm()
 })
 
 // 初始化
 onMounted(() => {
   setOnFrameChange(handleFrameChange)
-  loadPreset()
+  loadPresetGraph()
 })
 </script>
 
@@ -498,161 +769,309 @@ onMounted(() => {
 }
 
 .content-header {
-  padding: 15px 25px;
-  background: var(--card-bg);
-  border-bottom: 1px solid var(--border-color);
+  padding: 16px 24px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+  z-index: 10;
+}
+
+.header-title h2 {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.subtitle {
+  display: block;
+  margin-top: 4px;
+  color: #909399;
+  font-size: 13px;
 }
 
 .header-actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
+  align-items: center;
 }
 
 .content-body {
   flex: 1;
-  padding: 20px;
-  overflow: auto;
+  padding: 24px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-.info-card {
-  background: #fff;
-  border-radius: 8px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
-}
-
-.info-card h3 {
-  display: inline;
-  margin-right: 10px;
-  color: #303133;
-}
-
-.info-card .name-en {
-  color: #909399;
-  font-size: 14px;
-}
-
-.info-card p {
-  color: #606266;
-  margin: 10px 0 15px;
-}
-
-.complexity {
+.main-layout {
   display: flex;
-  gap: 10px;
+  gap: 24px;
+  align-items: stretch;
+  max-width: 1600px;
+  margin: 0 auto;
+  min-height: 100%;
+}
+
+.left-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+  padding-bottom: 80px;
+}
+
+.right-panel {
+  width: 480px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  height: calc(100vh - 180px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+.right-panel.fullscreen {
+  position: fixed;
+  left: calc(var(--sidebar-width, 220px) + 24px);
+  right: 24px;
+  top: 80px;
+  bottom: 84px;
+  width: auto;
+  z-index: 200;
+  height: auto;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+}
+
+.glass-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.02);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.glass-card:hover {
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.06);
+}
+
+.card-title {
+  margin: 0 0 16px;
+  color: #303133;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+}
+
+.card-title::before {
+  content: '';
+  width: 4px;
+  height: 14px;
+  border-radius: 2px;
+  background: var(--primary-color);
+  margin-right: 8px;
+}
+
+.info-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.info-header h3 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #1f2f3d;
+}
+
+.name-en {
+  font-size: 14px;
+  color: #a8abb2;
+  font-style: italic;
+}
+
+.description {
+  color: #606266;
+  margin-bottom: 20px;
+  line-height: 1.6;
+  min-height: 44px;
+}
+
+.complexity-tags {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .animation-container {
-  background: #fff;
-  border-radius: 8px;
   padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }
 
 .graph-canvas {
   position: relative;
   width: 100%;
   height: 400px;
-  background: #fafafa;
-  border-radius: 8px;
+  background: #fafbfc;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.03);
+  overflow: hidden;
 }
 
 .graph-edges {
   position: absolute;
   top: 0;
   left: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
 }
 
 .graph-edges line {
-  transition: stroke 0.3s ease, stroke-width 0.3s ease;
+  stroke: #e4e7ed;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke 0.4s ease, stroke-width 0.4s ease;
 }
 
 .graph-edges line.selected {
-  stroke: #67c23a;
-  stroke-width: 4;
+  stroke: var(--success-color);
+  stroke-width: 5;
 }
 
 .graph-edges line.visiting {
-  stroke: #f56c6c;
-  stroke-width: 3;
+  stroke: var(--danger-color);
+  stroke-width: 4;
+  stroke-dasharray: 8 4;
+  animation: dashMove 1s linear infinite;
+}
+
+@keyframes dashMove {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+.edge-weight-bg {
+  fill: #fafbfc;
+  opacity: 0.8;
 }
 
 .edge-weight {
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
   fill: #909399;
   text-anchor: middle;
+  transition: all 0.3s;
+}
+
+.edge-weight.visiting {
+  fill: var(--danger-color);
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .edge-weight.selected {
-  fill: #67c23a;
+  fill: var(--success-color);
+  font-size: 16px;
   font-weight: bold;
 }
 
 .graph-node {
   position: absolute;
-  width: 50px;
-  height: 50px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: #fff;
+  width: 48px;
+  height: 48px;
+  background: #ffffff;
+  border: 2px solid #a1c4fd;
+  color: #303133;
   border-radius: 50%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
+  transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   z-index: 10;
   cursor: pointer;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
 }
 
 .graph-node .node-label {
-  font-size: 16px;
-  font-weight: bold;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .graph-node .node-dist {
-  font-size: 10px;
+  font-size: 11px;
   opacity: 0.8;
+  margin-top: -2px;
+  color: var(--primary-color);
+  font-weight: 700;
 }
 
 .graph-node.visited {
-  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  background: #f0f9eb;
+  border-color: var(--success-color);
+  color: var(--success-color);
 }
 
 .graph-node.current {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-  transform: scale(1.2);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  background: #fef0f0;
+  border-color: var(--danger-color);
+  color: var(--danger-color);
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: 0 6px 16px rgba(245, 108, 108, 0.3);
 }
 
 .graph-node.start {
-  border: 3px solid #e6a23c;
+  border: 3px solid var(--warning-color);
+  box-shadow: 0 0 0 4px rgba(230, 162, 60, 0.2);
 }
 
-/* 侧边面板 */
-.side-panel {
-  background: #fff;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+.start-indicator {
+  position: absolute;
+  top: -20px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #fff;
+  background: var(--warning-color);
 }
 
-.panel-section {
-  margin-bottom: 20px;
+.start-node-card {
+  padding: 16px;
 }
 
-.panel-section h4 {
-  margin-bottom: 10px;
-  color: #606266;
-  font-size: 14px;
+.code-editor-wrapper {
+  flex: 1;
+  min-height: 0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.04);
+}
+
+.data-panels-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.data-card {
+  padding: 15px;
 }
 
 .selected-edges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 10px;
 }
 
@@ -669,35 +1088,74 @@ onMounted(() => {
 .traversal-order {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  gap: 6px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #fafbfc;
 }
 
 .order-item {
-  width: 30px;
-  height: 30px;
-  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-  color: #fff;
+  width: 34px;
+  height: 34px;
+  background: #ecf5ff;
+  border: 1px solid #b3d8ff;
+  color: #409eff;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: bold;
-  font-size: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 2px 6px rgba(64, 158, 255, 0.2);
+}
+
+.order-arrow {
+  color: #a8abb2;
+  font-size: 14px;
 }
 
 .info-panel {
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 15px;
-}
-
-.info-panel h4 {
-  margin-bottom: 10px;
-  color: var(--primary-color);
+  padding: 20px;
 }
 
 .step-info {
   font-size: 14px;
-  line-height: 1.8;
+}
+
+.info-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 22px;
+  margin-bottom: 12px;
+}
+
+.info-row .label {
+  color: #909399;
+  min-width: 65px;
+}
+
+.info-row .value {
+  color: #1f2f3d;
+  line-height: 1.5;
+}
+
+@media (max-width: 1200px) {
+  .main-layout {
+    flex-direction: column;
+  }
+
+  .right-panel,
+  .right-panel.fullscreen {
+    position: static;
+    width: 100%;
+    height: auto;
+    left: auto;
+    right: auto;
+    top: auto;
+    bottom: auto;
+    box-shadow: none;
+  }
 }
 </style>

@@ -1,187 +1,167 @@
-<template>
+﻿<template>
   <div class="search-view">
-    <!-- 头部 -->
     <div class="content-header">
-      <h2>第7章 查找</h2>
+      <h2>第8章 查找</h2>
       <div class="header-actions">
         <el-select v-model="selectedAlgorithm" style="width: 150px">
+          <el-option label="顺序查找" value="sequential" />
           <el-option label="二分查找" value="binary" />
+          <el-option label="插值查找" value="interpolation" />
+          <el-option label="跳跃查找" value="jump" />
           <el-option label="BST查找" value="bst" />
-          <el-option label="哈希表" value="hash" />
+          <el-option label="哈希查找" value="hash" />
         </el-select>
-        <el-button type="primary" @click="runSearch">
-          <el-icon><Search /></el-icon>
-          开始查找
-        </el-button>
+        <el-select v-model="selectedPreset" placeholder="选择预设案例" style="width: 150px" @change="loadPreset">
+          <el-option label="自定义" value="" />
+          <el-option v-for="(preset, index) in currentPresets" :key="index" :label="preset.name" :value="index" />
+        </el-select>
         <el-button @click="resetDemo">
           <el-icon><Refresh /></el-icon>
           重置
         </el-button>
+        <el-button v-if="isArraySearch" type="primary" @click="generateRandomArray">
+          <el-icon><Refresh /></el-icon>
+          随机生成
+        </el-button>
       </div>
     </div>
-    
-    <!-- 主内容区 -->
+
     <div class="content-body">
-      <!-- 算法信息 -->
-      <div class="info-card">
-        <h3>{{ algorithmInfo.name }}</h3>
-        <span class="name-en">{{ algorithmInfo.nameEn }}</span>
-        <p>{{ algorithmInfo.description }}</p>
-        <div class="complexity">
-          <el-tag>时间: {{ algorithmInfo.timeComplexity }}</el-tag>
-          <el-tag type="success">空间: {{ algorithmInfo.spaceComplexity }}</el-tag>
-        </div>
-      </div>
-      
-      <!-- 输入区 -->
-      <div class="input-card">
-        <el-form :inline="true">
-          <!-- 二分查找输入 -->
-          <template v-if="selectedAlgorithm === 'binary'">
-            <el-form-item label="有序数组">
-              <el-input v-model="arrayInput" placeholder="如: 1,3,5,7,9,11,13,15" style="width: 300px" />
-            </el-form-item>
-            <el-form-item label="查找目标">
-              <el-input-number v-model="searchTarget" />
-            </el-form-item>
-          </template>
-          
-          <!-- BST输入 -->
-          <template v-if="selectedAlgorithm === 'bst'">
-            <el-form-item label="BST序列">
-              <el-input v-model="bstInput" placeholder="如: 50,30,70,20,40,60,80" style="width: 300px" />
-            </el-form-item>
-            <el-form-item label="查找目标">
-              <el-input-number v-model="searchTarget" />
-            </el-form-item>
-          </template>
-          
-          <!-- 哈希表输入 -->
-          <template v-if="selectedAlgorithm === 'hash'">
-            <el-form-item label="表大小">
-              <el-input-number v-model="hashTableSize" :min="5" :max="20" />
-            </el-form-item>
-            <el-form-item label="插入值">
-              <el-input-number v-model="hashInsertValue" />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="success" @click="handleHashInsert">插入</el-button>
-            </el-form-item>
-            <el-form-item label="查找值">
-              <el-input-number v-model="searchTarget" />
-            </el-form-item>
-          </template>
-        </el-form>
-      </div>
-      
-      <!-- 动画演示区 -->
-      <div class="animation-container">
-        <!-- 二分查找可视化 -->
-        <div v-if="selectedAlgorithm === 'binary'" class="binary-search-visual">
-          <div class="array-row">
-            <div 
-              v-for="(value, index) in displayArray" 
-              :key="index"
-              class="array-cell"
-              :class="getBinaryCellClass(index)"
-            >
-              <span class="cell-index">{{ index }}</span>
-              <span class="cell-value">{{ value }}</span>
+      <div class="main-layout">
+        <div class="left-panel">
+          <div class="info-card">
+            <h3>{{ algorithmInfo.name }}</h3>
+            <span class="name-en">{{ algorithmInfo.nameEn }}</span>
+            <p>{{ algorithmInfo.description }}</p>
+            <div class="complexity">
+              <el-tag>时间: {{ algorithmInfo.timeComplexity }}</el-tag>
+              <el-tag type="success">空间: {{ algorithmInfo.spaceComplexity }}</el-tag>
             </div>
           </div>
-          <div class="pointers">
-            <div class="pointer left" v-if="leftPointer >= 0" :style="{ left: `${leftPointer * 62 + 25}px` }">
-              <span>L</span>
+
+          <div class="input-card">
+            <el-form :inline="true">
+              <template v-if="isArraySearch">
+                <el-form-item :label="isOrderedArraySearch ? '有序数组' : '数组'">
+                  <el-input v-model="arrayInput" placeholder="如: 1,3,5,7,9,11" style="width: 300px" />
+                </el-form-item>
+                <el-form-item label="查找目标">
+                  <el-input-number v-model="searchTarget" />
+                </el-form-item>
+              </template>
+
+              <template v-if="selectedAlgorithm === 'bst'">
+                <el-form-item label="BST序列">
+                  <el-input v-model="bstInput" placeholder="如: 50,30,70,20,40" style="width: 300px" />
+                </el-form-item>
+                <el-form-item label="查找目标">
+                  <el-input-number v-model="searchTarget" />
+                </el-form-item>
+              </template>
+
+              <template v-if="selectedAlgorithm === 'hash'">
+                <el-form-item label="表大小">
+                  <el-input-number v-model="hashTableSize" :min="5" :max="20" />
+                </el-form-item>
+                <el-form-item label="插入值">
+                  <el-input-number v-model="hashInsertValue" />
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="success" @click="handleHashInsert">插入</el-button>
+                </el-form-item>
+                <el-form-item label="查找值">
+                  <el-input-number v-model="searchTarget" />
+                </el-form-item>
+              </template>
+            </el-form>
+          </div>
+
+          <div class="animation-container">
+            <div v-if="isArraySearch" class="binary-search-visual">
+              <div class="array-row">
+                <div v-for="(value, index) in displayArray" :key="index" class="array-cell" :class="getBinaryCellClass(index)">
+                  <span class="cell-index">{{ index }}</span>
+                  <span class="cell-value">{{ value }}</span>
+                </div>
+              </div>
+              <div class="pointers">
+                <div class="pointers-inner" :style="{ width: `${displayArray.length * 62 - 2}px` }">
+                  <div class="pointer left" v-if="leftPointer >= 0" :style="{ left: `${leftPointer * 62 + 30}px` }"><span>L</span></div>
+                  <div class="pointer mid" v-if="midPointer >= 0" :style="{ left: `${midPointer * 62 + 30}px` }"><span>M</span></div>
+                  <div class="pointer right" v-if="rightPointer >= 0" :style="{ left: `${rightPointer * 62 + 30}px` }"><span>R</span></div>
+                </div>
+              </div>
             </div>
-            <div class="pointer mid" v-if="midPointer >= 0" :style="{ left: `${midPointer * 62 + 25}px` }">
-              <span>M</span>
+
+            <div v-if="selectedAlgorithm === 'bst'" class="bst-visual">
+              <div class="tree-canvas" ref="bstCanvasRef">
+                <svg class="tree-lines" width="100%" height="350">
+                  <line v-for="line in bstLines" :key="line.id" :x1="line.x1" :y1="line.y1" :x2="line.x2" :y2="line.y2" stroke="#409eff" stroke-width="2" />
+                </svg>
+
+                <div
+                  v-for="node in bstNodes"
+                  :key="node.id"
+                  class="tree-node"
+                  :class="{ visited: visitedNodes.has(node.id), current: currentNodeId === node.id, found: foundNodeId === node.id }"
+                  :style="{ left: `${node.x}px`, top: `${node.y}px` }"
+                >
+                  {{ node.value }}
+                </div>
+              </div>
             </div>
-            <div class="pointer right" v-if="rightPointer >= 0" :style="{ left: `${rightPointer * 62 + 25}px` }">
-              <span>R</span>
+
+            <div v-if="selectedAlgorithm === 'hash'" class="hash-visual">
+              <div class="hash-table">
+                <div v-for="(value, index) in hashTable" :key="index" class="hash-cell" :class="getHashCellClass(index)">
+                  <span class="cell-index">{{ index }}</span>
+                  <span class="cell-value">{{ value !== null ? value : '-' }}</span>
+                </div>
+              </div>
+              <div class="hash-info">
+                <p>哈希函数: H(key) = key % {{ hashTableSize }}</p>
+                <p>冲突解决: 线性探测法</p>
+              </div>
             </div>
           </div>
-        </div>
-        
-        <!-- BST可视化 -->
-        <div v-if="selectedAlgorithm === 'bst'" class="bst-visual">
-          <div class="tree-canvas">
-            <!-- SVG 连线 -->
-            <svg class="tree-lines" width="100%" height="350">
-              <line 
-                v-for="line in bstLines" 
-                :key="line.id"
-                :x1="line.x1" :y1="line.y1" 
-                :x2="line.x2" :y2="line.y2"
-                stroke="#409eff"
-                stroke-width="2"
-              />
-            </svg>
-            
-            <!-- 树节点 -->
-            <div 
-              v-for="node in bstNodes" 
-              :key="node.id"
-              class="tree-node"
-              :class="{ 
-                visited: visitedNodes.has(node.id),
-                current: currentNodeId === node.id,
-                found: foundNodeId === node.id
-              }"
-              :style="{ left: `${node.x}px`, top: `${node.y}px` }"
-            >
-              {{ node.value }}
-            </div>
+
+          <div class="result-panel" v-if="searchResult !== null">
+            <el-alert :title="searchResult >= 0 ? `查找成功，位置: ${searchResult}` : '未找到目标'" :type="searchResult >= 0 ? 'success' : 'warning'" show-icon :closable="false" />
           </div>
-        </div>
-        
-        <!-- 哈希表可视化 -->
-        <div v-if="selectedAlgorithm === 'hash'" class="hash-visual">
-          <div class="hash-table">
-            <div 
-              v-for="(value, index) in hashTable" 
-              :key="index"
-              class="hash-cell"
-              :class="getHashCellClass(index)"
-            >
-              <span class="cell-index">{{ index }}</span>
-              <span class="cell-value">{{ value !== null ? value : '-' }}</span>
+
+          <div class="info-panel" v-if="currentFrame">
+            <h4>当前步骤</h4>
+            <div class="step-info">
+              <p><strong>操作:</strong> {{ getFrameTypeName(currentFrame.type) }}</p>
+              <p><strong>描述:</strong> {{ currentFrame.description }}</p>
             </div>
-          </div>
-          <div class="hash-info">
-            <p>哈希函数: H(key) = key % {{ hashTableSize }}</p>
-            <p>冲突解决: 线性探测法</p>
           </div>
         </div>
-      </div>
-      
-      <!-- 查找结果 -->
-      <div class="result-panel" v-if="searchResult !== null">
-        <el-alert 
-          :title="searchResult >= 0 ? `查找成功！位置: ${searchResult}` : '未找到目标'"
-          :type="searchResult >= 0 ? 'success' : 'warning'"
-          show-icon
-          :closable="false"
-        />
-      </div>
-      
-      <!-- 步骤信息 -->
-      <div class="info-panel" v-if="currentFrame">
-        <h4>当前步骤</h4>
-        <div class="step-info">
-          <p><strong>操作:</strong> {{ getFrameTypeName(currentFrame.type) }}</p>
-          <p><strong>描述:</strong> {{ currentFrame.description }}</p>
+
+        <div class="right-panel" :class="{ fullscreen: isCodeFullscreen }">
+          <CodeEditorPanel
+            :algorithm-code="currentAlgorithmCode"
+            :algorithm-key="selectedAlgorithm"
+            :input-array="displayArray"
+            :is-playing="isPlaying"
+            :highlight-line="currentHighlightLine"
+            :use-pseudo-code="false"
+            :enable-fullscreen="true"
+            :is-fullscreen="isCodeFullscreen"
+            @apply-code="handleApplyCode"
+            @toggle-fullscreen="toggleCodeFullscreen"
+          />
         </div>
       </div>
     </div>
-    
-    <!-- 控制条 -->
+
     <ControlBar
       :current-index="currentIndex"
       :total-frames="totalFrames"
       :is-playing="isPlaying"
       :current-frame="currentFrame"
       :speed="config.speed"
-      @play="play"
+      @play="handlePlay"
       @pause="pause"
       @reset="reset"
       @step-forward="stepForward"
@@ -193,30 +173,37 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
-import { Search, Refresh } from '@element-plus/icons-vue'
-import { 
-  binarySearch, 
-  bstSearch, 
-  bstInsert,
-  hashInsert, 
+import { ref, computed, onMounted, watch, nextTick, onBeforeUnmount } from 'vue'
+import { Refresh } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import {
+  sequentialSearch,
+  binarySearch,
+  interpolationSearch,
+  jumpSearch,
+  bstSearch,
+  hashInsert,
   hashSearch,
   searchAlgorithms,
   type BSTNode,
   type HashTable
 } from '../core/algorithms/search'
+import { searchPresets } from '../core/presets'
+import { searchAlgorithmCode } from '../core/algorithmCode'
+import type { AlgorithmCode } from '../core/algorithmCode'
 import { useAnimationPlayer } from '../core/player/AnimationPlayer'
 import type { SearchFrame, TreeFrame } from '../core/types'
 import ControlBar from '../components/common/ControlBar.vue'
+import CodeEditorPanel from '../components/common/CodeEditorPanel.vue'
 
-// 状态
 const selectedAlgorithm = ref('binary')
+const isCodeFullscreen = ref(false)
+const selectedPreset = ref<number | ''>('')
 const arrayInput = ref('1, 3, 5, 7, 9, 11, 13, 15, 17, 19')
 const bstInput = ref('50, 30, 70, 20, 40, 60, 80')
 const searchTarget = ref(11)
 const searchResult = ref<number | null>(null)
 
-// 二分查找状态
 const displayArray = ref<number[]>([])
 const leftPointer = ref(-1)
 const midPointer = ref(-1)
@@ -224,7 +211,6 @@ const rightPointer = ref(-1)
 const highlightedIndex = ref<number | null>(null)
 const foundIndex = ref<number | null>(null)
 
-// BST状态
 interface BSTDisplayNode {
   id: string
   value: number
@@ -234,18 +220,19 @@ interface BSTDisplayNode {
 const bstRoot = ref<BSTNode | null>(null)
 const bstNodes = ref<BSTDisplayNode[]>([])
 const bstLines = ref<{ id: string, x1: number, y1: number, x2: number, y2: number }[]>([])
+const bstCanvasRef = ref<HTMLElement | null>(null)
 const visitedNodes = ref<Set<string>>(new Set())
 const currentNodeId = ref<string | null>(null)
 const foundNodeId = ref<string | null>(null)
 
-// 哈希表状态
 const hashTableSize = ref(11)
 const hashTable = ref<(number | null)[]>([])
 const hashInsertValue = ref(25)
 const probingIndex = ref<number | null>(null)
 const insertedIndex = ref<number | null>(null)
 
-// 播放器
+const userCustomFrames = ref<(SearchFrame | TreeFrame)[] | null>(null)
+
 const {
   currentIndex,
   totalFrames,
@@ -263,13 +250,106 @@ const {
   setOnFrameChange
 } = useAnimationPlayer<SearchFrame | TreeFrame>()
 
-// 计算属性
 const algorithmInfo = computed(() => {
   const algos: Record<string, any> = searchAlgorithms
   return algos[selectedAlgorithm.value] || searchAlgorithms.binary
 })
 
-// 获取帧类型名称
+const currentPresets = computed(() => {
+  const presets = searchPresets as Record<string, any[]>
+  return presets[selectedAlgorithm.value] || []
+})
+
+const currentAlgorithmCode = computed<AlgorithmCode>(() => {
+  const codeMap = searchAlgorithmCode as Record<string, AlgorithmCode>
+  const selected = codeMap[selectedAlgorithm.value]
+  if (selected) return selected
+  return codeMap.binary as AlgorithmCode
+})
+
+const currentHighlightLine = computed(() => {
+  if (!currentFrame.value) return undefined
+  const frame = currentFrame.value as SearchFrame
+  if (frame.highlightLine !== undefined) return frame.highlightLine
+
+  const desc = frame.description || ''
+
+  if (selectedAlgorithm.value === 'sequential') {
+    if (frame.type === 'compare') return 1
+    if (frame.type === 'found') return 2
+    if (frame.type === 'not-found') return 6
+    if (frame.type === 'reset') return 0
+    return 1
+  }
+
+  if (selectedAlgorithm.value === 'binary') {
+    if (frame.type === 'highlight') return 3
+    if (frame.type === 'compare' || frame.type === 'found') return 4
+    if (frame.type === 'update') {
+      if (desc.includes('右半')) return 6
+      return 8
+    }
+    if (frame.type === 'not-found') return 11
+    if (frame.type === 'reset') return 0
+    return 2
+  }
+
+  if (selectedAlgorithm.value === 'interpolation') {
+    if (frame.type === 'highlight') return 6
+    if (frame.type === 'compare') return 7
+    if (frame.type === 'found') return 8
+    if (frame.type === 'update') {
+      if (desc.includes('右侧')) return 9
+      return 10
+    }
+    if (frame.type === 'not-found') return 12
+    if (frame.type === 'reset') return 0
+    return 4
+  }
+
+  if (selectedAlgorithm.value === 'jump') {
+    if (frame.type === 'highlight') return 4
+    if (frame.type === 'update') return 9
+    if (frame.type === 'compare' || frame.type === 'found') return 10
+    if (frame.type === 'not-found') return 13
+    if (frame.type === 'reset') return 0
+    return 4
+  }
+
+  if (selectedAlgorithm.value === 'bst') {
+    const treeFrame = currentFrame.value as TreeFrame
+    if (treeFrame.type === 'visit') {
+      if (desc.includes('左子树')) return 6
+      if (desc.includes('右子树')) return 8
+      return 3
+    }
+    if (treeFrame.type === 'highlight') return 4
+    if (treeFrame.type === 'reset') return desc.includes('未找到') ? 12 : 0
+    return 3
+  }
+
+  if (selectedAlgorithm.value === 'hash') {
+    if (frame.type === 'highlight') return 1
+    if (frame.type === 'compare') return 4
+    if (frame.type === 'probe') return 7
+    if (frame.type === 'found') return 5
+    if (frame.type === 'insert') return 22
+    if (frame.type === 'not-found') return 11
+    if (frame.type === 'reset') return 0
+    return 4
+  }
+
+  return 0
+})
+
+const isArraySearch = computed(() => {
+  return ['sequential', 'binary', 'interpolation', 'jump'].includes(selectedAlgorithm.value)
+})
+
+const isOrderedArraySearch = computed(() => {
+  return ['binary', 'interpolation', 'jump'].includes(selectedAlgorithm.value)
+})
+
 function getFrameTypeName(type: string) {
   const names: Record<string, string> = {
     compare: '比较',
@@ -278,35 +358,35 @@ function getFrameTypeName(type: string) {
     probe: '探测',
     insert: '插入',
     highlight: '高亮',
+    update: '更新范围',
     visit: '访问',
     reset: '重置'
   }
   return names[type] || type
 }
 
-// 获取二分查找单元格样式
 function getBinaryCellClass(index: number) {
   if (foundIndex.value === index) return 'found'
   if (highlightedIndex.value === index) return 'comparing'
+  if (selectedAlgorithm.value === 'sequential') return ''
   if (index >= leftPointer.value && index <= rightPointer.value) return 'in-range'
   return 'out-range'
 }
 
-// 获取哈希表单元格样式
 function getHashCellClass(index: number) {
+  if (foundIndex.value === index) return 'found'
   if (insertedIndex.value === index) return 'inserted'
   if (probingIndex.value === index) return 'probing'
   if (highlightedIndex.value === index) return 'comparing'
   return ''
 }
 
-// 处理帧变化
-function handleFrameChange(frame: SearchFrame | TreeFrame | null, index: number) {
+function handleFrameChange(frame: SearchFrame | TreeFrame | null) {
   highlightedIndex.value = null
   probingIndex.value = null
   insertedIndex.value = null
   currentNodeId.value = null
-  
+
   if (!frame) {
     leftPointer.value = -1
     midPointer.value = -1
@@ -316,17 +396,18 @@ function handleFrameChange(frame: SearchFrame | TreeFrame | null, index: number)
     visitedNodes.value = new Set()
     return
   }
-  
+
   const searchFrame = frame as SearchFrame
   const treeFrame = frame as TreeFrame
-  
+
+  if (searchFrame.data?.left !== undefined) {
+    leftPointer.value = searchFrame.data.left
+    rightPointer.value = searchFrame.data.right
+    midPointer.value = searchFrame.data.mid
+  }
+
   switch (frame.type) {
     case 'highlight':
-      if (searchFrame.data?.left !== undefined) {
-        leftPointer.value = searchFrame.data.left
-        rightPointer.value = searchFrame.data.right
-        midPointer.value = searchFrame.data.mid
-      }
       highlightedIndex.value = searchFrame.index ?? null
       break
     case 'compare':
@@ -345,6 +426,9 @@ function handleFrameChange(frame: SearchFrame | TreeFrame | null, index: number)
       break
     case 'not-found':
       searchResult.value = -1
+      leftPointer.value = -1
+      midPointer.value = -1
+      rightPointer.value = -1
       break
     case 'probe':
       probingIndex.value = searchFrame.index ?? null
@@ -363,28 +447,45 @@ function handleFrameChange(frame: SearchFrame | TreeFrame | null, index: number)
       if (searchFrame.data?.table) {
         hashTable.value = [...searchFrame.data.table]
       }
+      leftPointer.value = -1
+      midPointer.value = -1
+      rightPointer.value = -1
       break
   }
 }
 
-// 解析数组
 function parseArray(): number[] {
-  return arrayInput.value
+  const parsed = arrayInput.value
     .split(/[,\s]+/)
     .map(s => parseInt(s.trim()))
     .filter(n => !isNaN(n))
-    .sort((a, b) => a - b)
+
+  if (!isOrderedArraySearch.value) return parsed
+  return parsed.sort((a, b) => a - b)
 }
 
-// 构建BST
+function generateRandomArray() {
+  const length = Math.floor(Math.random() * 6) + 6
+  const set = new Set<number>()
+  while (set.size < length) {
+    set.add(Math.floor(Math.random() * 90) + 1)
+  }
+  const arr = Array.from(set).sort((a, b) => a - b)
+  arrayInput.value = arr.join(', ')
+  displayArray.value = [...arr]
+  resetVisualState()
+  userCustomFrames.value = null
+  load(buildDefaultFrames())
+}
+
 function buildBST() {
   const values = bstInput.value
     .split(/[,\s]+/)
     .map(s => parseInt(s.trim()))
     .filter(n => !isNaN(n))
-  
+
   bstRoot.value = null
-  
+
   for (const value of values) {
     if (bstRoot.value === null) {
       bstRoot.value = {
@@ -397,8 +498,10 @@ function buildBST() {
       insertIntoBST(bstRoot.value, value)
     }
   }
-  
-  calculateBSTPositions()
+
+  nextTick(() => {
+    calculateBSTPositions()
+  })
 }
 
 function insertIntoBST(node: BSTNode, value: number) {
@@ -420,97 +523,138 @@ function insertIntoBST(node: BSTNode, value: number) {
 function calculateBSTPositions() {
   bstNodes.value = []
   bstLines.value = []
-  
+
   if (!bstRoot.value) return
-  
-  const canvasWidth = 600
+
+  const canvasWidth = Math.max(bstCanvasRef.value?.clientWidth || 600, 420)
+  const canvasHeight = 350
   const nodeWidth = 40
-  const levelHeight = 70
-  
-  function traverse(node: BSTNode, x: number, y: number, spread: number) {
-    bstNodes.value.push({
-      id: node.id,
-      value: node.value,
-      x: x - nodeWidth / 2,
-      y
-    })
-    
+  const topPadding = 30
+
+  function getDepth(node: BSTNode | null): number {
+    if (!node) return 0
+    return 1 + Math.max(getDepth(node.left), getDepth(node.right))
+  }
+
+  function inorder(node: BSTNode | null, result: BSTNode[]) {
+    if (!node) return
+    inorder(node.left, result)
+    result.push(node)
+    inorder(node.right, result)
+  }
+
+  const orderedNodes: BSTNode[] = []
+  inorder(bstRoot.value, orderedNodes)
+  const xIndexMap = new Map<string, number>()
+  orderedNodes.forEach((node, idx) => {
+    xIndexMap.set(node.id, idx)
+  })
+
+  const depth = Math.max(getDepth(bstRoot.value), 1)
+  const usableHeight = canvasHeight - topPadding - 20
+  const levelHeight = depth > 1 ? Math.max(50, Math.floor(usableHeight / (depth - 1))) : 70
+
+  function getNodeCenterX(nodeId: string): number {
+    const idx = xIndexMap.get(nodeId) ?? 0
+    return ((idx + 1) * canvasWidth) / (orderedNodes.length + 1)
+  }
+
+  function traverse(node: BSTNode, depthLevel: number) {
+    const xCenter = getNodeCenterX(node.id)
+    const y = topPadding + depthLevel * levelHeight
+    bstNodes.value.push({ id: node.id, value: node.value, x: xCenter - nodeWidth / 2, y })
+
     if (node.left) {
-      const childX = x - spread
-      const childY = y + levelHeight
-      bstLines.value.push({
-        id: `line-${node.id}-${node.left.id}`,
-        x1: x, y1: y + nodeWidth / 2,
-        x2: childX, y2: childY
-      })
-      traverse(node.left, childX, childY, spread / 2)
+      const childX = getNodeCenterX(node.left.id)
+      const childY = topPadding + (depthLevel + 1) * levelHeight
+      bstLines.value.push({ id: `line-${node.id}-${node.left.id}`, x1: xCenter, y1: y + nodeWidth / 2, x2: childX, y2: childY })
+      traverse(node.left, depthLevel + 1)
     }
-    
+
     if (node.right) {
-      const childX = x + spread
-      const childY = y + levelHeight
-      bstLines.value.push({
-        id: `line-${node.id}-${node.right.id}`,
-        x1: x, y1: y + nodeWidth / 2,
-        x2: childX, y2: childY
-      })
-      traverse(node.right, childX, childY, spread / 2)
+      const childX = getNodeCenterX(node.right.id)
+      const childY = topPadding + (depthLevel + 1) * levelHeight
+      bstLines.value.push({ id: `line-${node.id}-${node.right.id}`, x1: xCenter, y1: y + nodeWidth / 2, x2: childX, y2: childY })
+      traverse(node.right, depthLevel + 1)
     }
   }
-  
-  traverse(bstRoot.value, canvasWidth / 2, 30, 120)
+
+  traverse(bstRoot.value, 0)
 }
 
-// 初始化哈希表
+function handleWindowResize() {
+  if (selectedAlgorithm.value === 'bst' && bstRoot.value) {
+    calculateBSTPositions()
+  }
+}
+
 function initHashTable() {
   hashTable.value = new Array(hashTableSize.value).fill(null)
 }
 
-// 哈希表插入
 function handleHashInsert() {
   const ht: HashTable = { size: hashTableSize.value, table: [...hashTable.value] }
   const frames = hashInsert(ht, hashInsertValue.value)
-  
-  // 更新哈希表
   const lastFrame = frames[frames.length - 1] as SearchFrame
-  if (lastFrame.data?.table) {
+  if (lastFrame?.data?.table) {
     hashTable.value = [...lastFrame.data.table]
   }
-  
   load(frames)
   hashInsertValue.value = Math.floor(Math.random() * 100)
 }
 
-// 运行查找
+function buildDefaultFrames(): (SearchFrame | TreeFrame)[] {
+  switch (selectedAlgorithm.value) {
+    case 'sequential':
+      displayArray.value = parseArray()
+      return sequentialSearch(displayArray.value, searchTarget.value)
+    case 'binary':
+      displayArray.value = parseArray()
+      return binarySearch(displayArray.value, searchTarget.value)
+    case 'interpolation':
+      displayArray.value = parseArray()
+      return interpolationSearch(displayArray.value, searchTarget.value)
+    case 'jump':
+      displayArray.value = parseArray()
+      return jumpSearch(displayArray.value, searchTarget.value)
+    case 'bst':
+      buildBST()
+      return bstSearch(bstRoot.value, searchTarget.value)
+    case 'hash': {
+      const ht: HashTable = { size: hashTableSize.value, table: [...hashTable.value] }
+      return hashSearch(ht, searchTarget.value)
+    }
+    default:
+      return []
+  }
+}
+
 function runSearch() {
   searchResult.value = null
   foundIndex.value = null
   foundNodeId.value = null
   visitedNodes.value = new Set()
-  
-  let frames: (SearchFrame | TreeFrame)[] = []
-  
-  switch (selectedAlgorithm.value) {
-    case 'binary':
-      displayArray.value = parseArray()
-      frames = binarySearch(displayArray.value, searchTarget.value)
-      break
-    case 'bst':
-      buildBST()
-      frames = bstSearch(bstRoot.value, searchTarget.value)
-      break
-    case 'hash':
-      const ht: HashTable = { size: hashTableSize.value, table: [...hashTable.value] }
-      frames = hashSearch(ht, searchTarget.value)
-      break
+
+  if (userCustomFrames.value) {
+    load(userCustomFrames.value)
+    return
   }
-  
-  load(frames)
+
+  load(buildDefaultFrames())
 }
 
-// 重置演示
-function resetDemo() {
-  stop()
+function handlePlay() {
+  if (currentIndex.value === -1) {
+    runSearch()
+  }
+  play()
+}
+
+function toggleCodeFullscreen() {
+  isCodeFullscreen.value = !isCodeFullscreen.value
+}
+
+function resetVisualState() {
   searchResult.value = null
   leftPointer.value = -1
   midPointer.value = -1
@@ -521,43 +665,216 @@ function resetDemo() {
   visitedNodes.value = new Set()
   probingIndex.value = null
   insertedIndex.value = null
-  
-  if (selectedAlgorithm.value === 'binary') {
+}
+
+function resetDemo() {
+  stop()
+  resetVisualState()
+
+  if (isArraySearch.value) {
     displayArray.value = parseArray()
   } else if (selectedAlgorithm.value === 'bst') {
     buildBST()
   } else if (selectedAlgorithm.value === 'hash') {
     initHashTable()
   }
+
+  if (userCustomFrames.value) {
+    load(userCustomFrames.value)
+  } else {
+    load(buildDefaultFrames())
+  }
 }
 
-// 重置
 function reset() {
   stop()
-  leftPointer.value = -1
-  midPointer.value = -1
-  rightPointer.value = -1
-  highlightedIndex.value = null
-  foundIndex.value = null
-  searchResult.value = null
-  visitedNodes.value = new Set()
-  foundNodeId.value = null
+  resetVisualState()
+
+  if (userCustomFrames.value) {
+    load(userCustomFrames.value)
+  } else {
+    load(buildDefaultFrames())
+  }
 }
 
-// 监听算法变化
+function loadPreset() {
+  if (selectedPreset.value === '') return
+
+  const preset = currentPresets.value[selectedPreset.value as number]
+  if (!preset) return
+
+  if (isArraySearch.value) {
+    arrayInput.value = preset.data.join(', ')
+    displayArray.value = [...preset.data]
+  } else if (selectedAlgorithm.value === 'bst') {
+    bstInput.value = preset.data.join(', ')
+    buildBST()
+  } else if (selectedAlgorithm.value === 'hash') {
+    hashTableSize.value = preset.data.size
+    initHashTable()
+    preset.data.values.forEach((val: number) => {
+      const ht: HashTable = { size: hashTableSize.value, table: [...hashTable.value] }
+      const frames = hashInsert(ht, val)
+      const lastFrame = frames[frames.length - 1] as SearchFrame
+      if (lastFrame?.data?.table) {
+        hashTable.value = [...lastFrame.data.table]
+      }
+    })
+  }
+
+  if (userCustomFrames.value) {
+    load(userCustomFrames.value)
+  } else {
+    load(buildDefaultFrames())
+  }
+}
+
+function handleApplyCode(code: string) {
+  executeUserCode(code)
+}
+
+function executeUserCode(code: string) {
+  try {
+    const wrappedCode = `
+      (function() {
+        ${code}
+        const functionNames = [
+          'sequentialSearch', 'sequential_search', 'SequentialSearch',
+          'binarySearch', 'binary_search', 'BinarySearch',
+          'interpolationSearch', 'interpolation_search', 'InterpolationSearch',
+          'jumpSearch', 'jump_search', 'JumpSearch',
+          'bstSearch', 'bst_search', 'BstSearch',
+          'hashSearch', 'hash_search', 'HashSearch',
+          'search'
+        ];
+        for (const name of functionNames) {
+          try {
+            const fn = eval(name);
+            if (typeof fn === 'function') {
+              return fn;
+            }
+          } catch (e) {
+          }
+        }
+        throw new Error('未找到有效的查找函数');
+      })()
+    `
+
+    const searchFunction = eval(wrappedCode)
+    if (typeof searchFunction !== 'function') {
+      ElMessage.error('代码必须定义一个查找函数')
+      return
+    }
+
+    let result: (SearchFrame | TreeFrame)[]
+
+    switch (selectedAlgorithm.value) {
+      case 'sequential':
+        displayArray.value = parseArray()
+        result = searchFunction([...displayArray.value], searchTarget.value)
+        break
+      case 'binary':
+        displayArray.value = parseArray()
+        result = searchFunction([...displayArray.value], searchTarget.value)
+        break
+      case 'interpolation':
+        displayArray.value = parseArray()
+        result = searchFunction([...displayArray.value], searchTarget.value)
+        break
+      case 'jump':
+        displayArray.value = parseArray()
+        result = searchFunction([...displayArray.value], searchTarget.value)
+        break
+      case 'bst':
+        buildBST()
+        result = searchFunction(bstRoot.value, searchTarget.value)
+        break
+      case 'hash': {
+        const ht: HashTable = { size: hashTableSize.value, table: [...hashTable.value] }
+        result = searchFunction(ht, searchTarget.value)
+        break
+      }
+      default:
+        result = []
+        break
+    }
+
+    if (!Array.isArray(result)) {
+      ElMessage.error('查找函数必须返回帧数组')
+      return
+    }
+
+    if (result.length === 0 || !result[0]?.type) {
+      ElMessage.error('返回的帧数组格式不正确')
+      return
+    }
+
+    stop()
+    userCustomFrames.value = result
+    load(result)
+    resetVisualState()
+
+    if (totalFrames.value > 0) {
+      goTo(0)
+    }
+
+  } catch (e: any) {
+    ElMessage.error({
+      message: `代码执行错误: ${e?.message || String(e)}`,
+      duration: 5000,
+      showClose: true
+    })
+  }
+}
+
 watch(selectedAlgorithm, () => {
+  userCustomFrames.value = null
+  selectedPreset.value = ''
   resetDemo()
+
+  if (currentPresets.value.length > 0) {
+    selectedPreset.value = 0
+    loadPreset()
+  }
+})
+
+watch(arrayInput, () => {
+  if (!isArraySearch.value) return
+  displayArray.value = parseArray()
+  if (!isPlaying.value) {
+    resetVisualState()
+    if (userCustomFrames.value) {
+      userCustomFrames.value = null
+    }
+    load(buildDefaultFrames())
+  }
 })
 
 watch(hashTableSize, () => {
   initHashTable()
 })
 
-// 初始化
 onMounted(() => {
   setOnFrameChange(handleFrameChange)
-  displayArray.value = parseArray()
-  initHashTable()
+  window.addEventListener('resize', handleWindowResize)
+
+  if (currentPresets.value.length > 0) {
+    selectedPreset.value = 0
+    loadPreset()
+  } else {
+    displayArray.value = parseArray()
+    initHashTable()
+  }
+
+  if (userCustomFrames.value) {
+    load(userCustomFrames.value)
+  } else {
+    load(buildDefaultFrames())
+  }
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleWindowResize)
 })
 </script>
 
@@ -588,7 +905,43 @@ onMounted(() => {
   overflow: auto;
 }
 
-.info-card, .input-card {
+.main-layout {
+  display: flex;
+  gap: 20px;
+  height: 100%;
+  align-items: flex-start;
+  position: relative;
+}
+
+.left-panel {
+  flex: 1;
+  min-width: 0;
+  margin-right: 420px;
+}
+
+.right-panel {
+  width: 400px;
+  flex-shrink: 0;
+  position: fixed;
+  right: 20px;
+  top: 100px;
+  bottom: 80px;
+  z-index: 100;
+  transition: left 0.3s ease, right 0.3s ease, width 0.3s ease;
+}
+
+.right-panel.fullscreen {
+  position: fixed;
+  left: calc(var(--sidebar-width, 220px) + 20px);
+  right: 20px;
+  top: 80px;
+  bottom: 80px;
+  width: auto;
+  z-index: 200;
+}
+
+.info-card,
+.input-card {
   background: #fff;
   border-radius: 8px;
   padding: 20px;
@@ -626,14 +979,15 @@ onMounted(() => {
   min-height: 300px;
 }
 
-/* 二分查找样式 */
 .binary-search-visual {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .array-row {
   display: flex;
-  justify-content: center;
   gap: 2px;
   margin-bottom: 60px;
 }
@@ -683,6 +1037,14 @@ onMounted(() => {
 .pointers {
   position: relative;
   height: 40px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.pointers-inner {
+  position: relative;
+  display: inline-block;
 }
 
 .pointer {
@@ -709,16 +1071,30 @@ onMounted(() => {
   font-size: 14px;
 }
 
-.pointer.left::before { border-bottom-color: #409eff; }
-.pointer.left span { color: #409eff; }
+.pointer.left::before {
+  border-bottom-color: #409eff;
+}
 
-.pointer.mid::before { border-bottom-color: #f56c6c; }
-.pointer.mid span { color: #f56c6c; }
+.pointer.left span {
+  color: #409eff;
+}
 
-.pointer.right::before { border-bottom-color: #67c23a; }
-.pointer.right span { color: #67c23a; }
+.pointer.mid::before {
+  border-bottom-color: #f56c6c;
+}
 
-/* BST样式 */
+.pointer.mid span {
+  color: #f56c6c;
+}
+
+.pointer.right::before {
+  border-bottom-color: #67c23a;
+}
+
+.pointer.right span {
+  color: #67c23a;
+}
+
 .bst-visual {
   min-height: 350px;
 }
@@ -765,7 +1141,6 @@ onMounted(() => {
   transform: scale(1.3);
 }
 
-/* 哈希表样式 */
 .hash-visual {
   text-align: center;
 }
@@ -819,6 +1194,18 @@ onMounted(() => {
 
 .hash-cell.inserted .cell-index,
 .hash-cell.inserted .cell-value {
+  color: #fff;
+}
+
+.hash-cell.found {
+  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  border-color: #67c23a;
+  color: #fff;
+  transform: scale(1.08);
+}
+
+.hash-cell.found .cell-index,
+.hash-cell.found .cell-value {
   color: #fff;
 }
 

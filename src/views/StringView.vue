@@ -8,111 +8,135 @@
           <el-option label="KMP算法" value="kmp" />
           <el-option label="朴素匹配" value="bruteForce" />
         </el-select>
-        <el-button type="primary" @click="runMatch">
-          <el-icon><Search /></el-icon>
-          开始匹配
-        </el-button>
+        <el-select v-model="selectedPreset" placeholder="选择预设案例" style="width: 150px" @change="loadPreset">
+          <el-option label="自定义" value="" />
+          <el-option 
+            v-for="(preset, index) in currentPresets" 
+            :key="index" 
+            :label="preset.name" 
+            :value="index" 
+          />
+        </el-select>
       </div>
     </div>
     
     <!-- 主内容区 -->
     <div class="content-body">
-      <!-- 输入区 -->
-      <div class="input-card">
-        <el-form :inline="true">
-          <el-form-item label="主串 T">
-            <el-input v-model="textInput" placeholder="如: ABABABABCA" style="width: 300px" />
-          </el-form-item>
-          <el-form-item label="模式串 P">
-            <el-input v-model="patternInput" placeholder="如: ABABABCA" style="width: 200px" />
-          </el-form-item>
-        </el-form>
-      </div>
-      
-      <!-- 算法信息 -->
-      <div class="info-card">
-        <h3>{{ algorithmInfo.name }}</h3>
-        <span class="name-en">{{ algorithmInfo.nameEn }}</span>
-        <p>{{ algorithmInfo.description }}</p>
-        <div class="complexity">
-          <el-tag>时间: {{ algorithmInfo.timeComplexity }}</el-tag>
-          <el-tag type="success">空间: {{ algorithmInfo.spaceComplexity }}</el-tag>
-        </div>
-      </div>
-      
-      <!-- 动画演示区 -->
-      <div class="animation-container">
-        <!-- 主串显示 -->
-        <div class="string-row">
-          <span class="row-label">主串 T:</span>
-          <div class="char-boxes">
-            <div 
-              v-for="(char, index) in textChars" 
-              :key="`t-${index}`"
-              class="char-box"
-              :class="getTextCharClass(index)"
-            >
-              <span class="char-index">{{ index }}</span>
-              <span class="char-value">{{ char }}</span>
+      <div class="main-layout">
+        <div class="left-panel">
+          <!-- 输入区 -->
+          <div class="input-card">
+            <el-form :inline="true">
+              <el-form-item label="主串 T">
+                <el-input v-model="textInput" placeholder="如: ABABABABCA" style="width: 300px" />
+              </el-form-item>
+              <el-form-item label="模式串 P">
+                <el-input v-model="patternInput" placeholder="如: ABABABCA" style="width: 200px" />
+              </el-form-item>
+            </el-form>
+          </div>
+          
+          <!-- 算法信息 -->
+          <div class="info-card">
+            <h3>{{ algorithmInfo.name }}</h3>
+            <span class="name-en">{{ algorithmInfo.nameEn }}</span>
+            <p>{{ algorithmInfo.description }}</p>
+            <div class="complexity">
+              <el-tag>时间: {{ algorithmInfo.timeComplexity }}</el-tag>
+              <el-tag type="success">空间: {{ algorithmInfo.spaceComplexity }}</el-tag>
+            </div>
+          </div>
+
+          <!-- 动画演示区 -->
+          <div class="animation-container">
+            <!-- 主串显示 -->
+            <div class="string-row">
+              <span class="row-label">主串 T:</span>
+              <div class="char-boxes">
+                <div 
+                  v-for="(char, index) in textChars" 
+                  :key="`t-${index}`"
+                  class="char-box"
+                  :class="getTextCharClass(index)"
+                >
+                  <span class="char-index">{{ index }}</span>
+                  <span class="char-value">{{ char }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 模式串显示（带偏移） -->
+            <div class="string-row pattern-row">
+              <span class="row-label">模式串 P:</span>
+              <div class="char-boxes" :style="{ marginLeft: `${patternOffset * 52}px` }">
+                <div 
+                  v-for="(char, index) in patternChars" 
+                  :key="`p-${index}`"
+                  class="char-box pattern"
+                  :class="getPatternCharClass(index)"
+                >
+                  <span class="char-index">{{ index }}</span>
+                  <span class="char-value">{{ char }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Next数组显示 -->
+            <div class="next-array" v-if="nextArray.length > 0">
+              <h4>Next 数组:</h4>
+              <div class="next-boxes">
+                <div 
+                  v-for="(val, index) in nextArray" 
+                  :key="`n-${index}`"
+                  class="next-box"
+                  :class="{ highlighted: currentPatternIndex === index }"
+                >
+                  <span class="next-index">{{ index }}</span>
+                  <span class="next-value">{{ val }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 匹配结果 -->
+          <div class="result-panel" v-if="matchResult !== null">
+            <el-alert 
+              :title="matchResult >= 0 ? `匹配成功！位置: ${matchResult}` : '未找到匹配'"
+              :type="matchResult >= 0 ? 'success' : 'warning'"
+              show-icon
+              :closable="false"
+            />
+          </div>
+
+          <!-- 步骤信息 -->
+          <div class="info-panel" v-if="currentFrame">
+            <h4>当前步骤</h4>
+            <div class="step-info">
+              <p><strong>操作:</strong> {{ getFrameTypeName(currentFrame.type) }}</p>
+              <p><strong>描述:</strong> {{ currentFrame.description }}</p>
+              <p v-if="currentFrame.textIndex >= 0">
+                <strong>主串位置:</strong> {{ currentFrame.textIndex }}
+              </p>
+              <p v-if="currentFrame.patternIndex >= 0">
+                <strong>模式串位置:</strong> {{ currentFrame.patternIndex }}
+              </p>
             </div>
           </div>
         </div>
-        
-        <!-- 模式串显示（带偏移） -->
-        <div class="string-row pattern-row">
-          <span class="row-label">模式串 P:</span>
-          <div class="char-boxes" :style="{ marginLeft: `${patternOffset * 52}px` }">
-            <div 
-              v-for="(char, index) in patternChars" 
-              :key="`p-${index}`"
-              class="char-box pattern"
-              :class="getPatternCharClass(index)"
-            >
-              <span class="char-index">{{ index }}</span>
-              <span class="char-value">{{ char }}</span>
-            </div>
-          </div>
-        </div>
-        
-        <!-- Next数组显示 -->
-        <div class="next-array" v-if="nextArray.length > 0">
-          <h4>Next 数组:</h4>
-          <div class="next-boxes">
-            <div 
-              v-for="(val, index) in nextArray" 
-              :key="`n-${index}`"
-              class="next-box"
-              :class="{ highlighted: currentPatternIndex === index }"
-            >
-              <span class="next-index">{{ index }}</span>
-              <span class="next-value">{{ val }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- 匹配结果 -->
-      <div class="result-panel" v-if="matchResult !== null">
-        <el-alert 
-          :title="matchResult >= 0 ? `匹配成功！位置: ${matchResult}` : '未找到匹配'"
-          :type="matchResult >= 0 ? 'success' : 'warning'"
-          show-icon
-          :closable="false"
-        />
-      </div>
-      
-      <!-- 步骤信息 -->
-      <div class="info-panel" v-if="currentFrame">
-        <h4>当前步骤</h4>
-        <div class="step-info">
-          <p><strong>操作:</strong> {{ getFrameTypeName(currentFrame.type) }}</p>
-          <p><strong>描述:</strong> {{ currentFrame.description }}</p>
-          <p v-if="currentFrame.textIndex >= 0">
-            <strong>主串位置:</strong> {{ currentFrame.textIndex }}
-          </p>
-          <p v-if="currentFrame.patternIndex >= 0">
-            <strong>模式串位置:</strong> {{ currentFrame.patternIndex }}
-          </p>
+
+        <div class="right-panel" :class="{ fullscreen: isCodeFullscreen }">
+          <CodeEditorPanel
+            :algorithm-code="currentAlgorithmCode"
+            :algorithm-key="selectedAlgorithm"
+            :input-array="[]"
+            :is-playing="isPlaying"
+            :highlight-line="currentHighlightLine"
+            :use-pseudo-code="false"
+            :enable-fullscreen="true"
+            :is-fullscreen="isCodeFullscreen"
+            @apply-code="handleApplyCode"
+            @toggle-fullscreen="toggleCodeFullscreen"
+          />
         </div>
       </div>
     </div>
@@ -124,7 +148,8 @@
       :is-playing="isPlaying"
       :current-frame="currentFrame"
       :speed="config.speed"
-      @play="play"
+      :allow-play-when-empty="true"
+      @play="handlePlay"
       @pause="pause"
       @reset="reset"
       @step-forward="stepForward"
@@ -136,15 +161,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { Search } from '@element-plus/icons-vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ElMessage } from 'element-plus'
 import { kmpSearch, bruteForceSearch, stringAlgorithms } from '../core/algorithms/kmp'
+import { stringPresets } from '../core/presets'
+import { stringAlgorithmCode } from '../core/algorithmCode'
+import type { AlgorithmCode } from '../core/algorithmCode'
 import { useAnimationPlayer } from '../core/player/AnimationPlayer'
 import type { KMPFrame } from '../core/types'
 import ControlBar from '../components/common/ControlBar.vue'
+import CodeEditorPanel from '../components/common/CodeEditorPanel.vue'
 
 // 状态
 const selectedAlgorithm = ref('kmp')
+const selectedPreset = ref<number | ''>('')
+const isCodeFullscreen = ref(false)
+const userCustomFrames = ref<KMPFrame[] | null>(null)
 const textInput = ref('ABABABABCA')
 const patternInput = ref('ABABCA')
 const textChars = ref<string[]>([])
@@ -155,6 +187,7 @@ const currentTextIndex = ref(-1)
 const currentPatternIndex = ref(-1)
 const matchResult = ref<number | null>(null)
 const matchStatus = ref<'matching' | 'matched' | 'mismatched' | null>(null)
+let stringInputTimer: ReturnType<typeof setTimeout> | null = null
 
 // 播放器
 const {
@@ -179,6 +212,72 @@ const algorithmInfo = computed(() => {
   return selectedAlgorithm.value === 'kmp' 
     ? stringAlgorithms.kmp 
     : stringAlgorithms.bruteForce
+})
+
+const currentPresets = computed(() => (stringPresets as Record<string, any[]>)[selectedAlgorithm.value] || [])
+const fallbackAlgorithmCode: AlgorithmCode = {
+  title: '字符串匹配',
+  language: 'javascript',
+  code: '// 暂无代码'
+}
+const currentAlgorithmCode = computed<AlgorithmCode>(() => {
+  return (stringAlgorithmCode as Record<string, AlgorithmCode>)[selectedAlgorithm.value]
+    ?? stringAlgorithmCode.kmp
+    ?? fallbackAlgorithmCode
+})
+const currentHighlightLine = computed(() => {
+  if (!currentFrame.value) return undefined
+  if (currentFrame.value.highlightLine !== undefined) return currentFrame.value.highlightLine
+
+  const frame = currentFrame.value
+  const desc = frame.description || ''
+
+  if (selectedAlgorithm.value === 'kmp') {
+    if (frame.type === 'next-calc') {
+      if (desc.includes('主串')) return 0
+      if (desc.includes('开始 KMP 匹配')) return 7
+      return 28
+    }
+
+    if (frame.type === 'compare') {
+      return frame.textIndex === -1 ? 29 : 8
+    }
+
+    if (frame.type === 'match') {
+      return frame.textIndex === -1 ? 30 : 9
+    }
+
+    if (frame.type === 'mismatch') {
+      if (frame.textIndex === -1) return 33
+      return frame.patternIndex === 0 ? 16 : 14
+    }
+
+    if (frame.type === 'shift') return 15
+
+    if (frame.type === 'complete') {
+      if (desc.includes('模式串为空')) return 1
+      if (desc.includes('找到匹配')) return 12
+      return 21
+    }
+
+    return 0
+  }
+
+  if (selectedAlgorithm.value === 'bruteForce') {
+    if (frame.type === 'next-calc') return 0
+    if (frame.type === 'shift') return 3
+    if (frame.type === 'compare') return 6
+    if (frame.type === 'match') return 7
+    if (frame.type === 'mismatch') return 6
+    if (frame.type === 'complete') {
+      if (desc.includes('模式串为空')) return 1
+      if (desc.includes('找到匹配')) return 11
+      return 15
+    }
+    return 0
+  }
+
+  return 0
 })
 
 // 获取主串字符样式
@@ -265,6 +364,19 @@ function handleFrameChange(frame: KMPFrame | null, index: number) {
   }
 }
 
+// 加载预设案例
+function loadPreset() {
+  if (selectedPreset.value === '') return
+  
+  const preset = currentPresets.value[selectedPreset.value as number]
+  if (preset && preset.data) {
+    textInput.value = preset.data.text
+    patternInput.value = preset.data.pattern
+    userCustomFrames.value = null
+    runMatch()
+  }
+}
+
 // 运行匹配
 function runMatch() {
   textChars.value = textInput.value.split('')
@@ -272,12 +384,88 @@ function runMatch() {
   matchResult.value = null
   patternOffset.value = 0
   nextArray.value = []
-  
-  const frames = selectedAlgorithm.value === 'kmp'
-    ? kmpSearch(textInput.value, patternInput.value)
-    : bruteForceSearch(textInput.value, patternInput.value)
+
+  const frames = userCustomFrames.value
+    ?? (selectedAlgorithm.value === 'kmp'
+      ? kmpSearch(textInput.value, patternInput.value)
+      : bruteForceSearch(textInput.value, patternInput.value))
   
   load(frames)
+}
+
+function autoRunMatch() {
+  if (stringInputTimer) clearTimeout(stringInputTimer)
+  stringInputTimer = setTimeout(() => {
+    userCustomFrames.value = null
+    selectedPreset.value = ''
+    stop()
+    runMatch()
+  }, 250)
+}
+
+function toggleCodeFullscreen() {
+  isCodeFullscreen.value = !isCodeFullscreen.value
+}
+
+function handleApplyCode(code: string) {
+  executeUserCode(code)
+}
+
+function executeUserCode(code: string) {
+  try {
+    const wrappedCode = `
+      (function() {
+        ${code}
+        const names = [
+          'kmpSearch', 'kmp_search', 'KmpSearch', 'KMP', 'kmp',
+          'bruteForceSearch', 'brute_force_search', 'BruteForceSearch',
+          'bruteForce', 'brute_force', 'BruteForce',
+          'search'
+        ]
+        for (const name of names) {
+          try {
+            const fn = eval(name)
+            if (typeof fn === 'function') return fn
+          } catch (e) {}
+        }
+        throw new Error('未找到有效字符串匹配函数')
+      })()
+    `
+
+    const fn = eval(wrappedCode)
+    if (typeof fn !== 'function') {
+      ElMessage.error('代码必须定义可执行函数')
+      return
+    }
+
+    const result = fn(textInput.value, patternInput.value)
+    if (!Array.isArray(result) || result.length === 0 || !result[0]?.type) {
+      ElMessage.error('请返回有效帧数组')
+      return
+    }
+
+    userCustomFrames.value = result
+    stop()
+    runMatch()
+    if (totalFrames.value > 0) goTo(0)
+  } catch (e: any) {
+    ElMessage.error(`代码执行错误: ${e?.message || String(e)}`)
+  }
+}
+
+function handlePlay() {
+  if (!userCustomFrames.value) {
+    runMatch()
+  } else if (currentIndex.value === -1 || totalFrames.value === 0) {
+    runMatch()
+  }
+
+  if (totalFrames.value === 0) {
+    ElMessage.warning('当前没有可播放的动画，请先输入主串和模式串')
+    return
+  }
+
+  play()
 }
 
 // 重置
@@ -288,13 +476,49 @@ function reset() {
   currentPatternIndex.value = -1
   matchStatus.value = null
   matchResult.value = null
+  if (userCustomFrames.value) {
+    load(userCustomFrames.value)
+  } else {
+    runMatch()
+  }
 }
+
+watch(selectedAlgorithm, () => {
+  userCustomFrames.value = null
+  selectedPreset.value = ''
+  if (currentPresets.value.length > 0) {
+    selectedPreset.value = 0
+    loadPreset()
+  } else {
+    runMatch()
+  }
+})
+
+watch(textInput, () => {
+  autoRunMatch()
+})
+
+watch(patternInput, () => {
+  autoRunMatch()
+})
 
 // 初始化
 onMounted(() => {
   setOnFrameChange(handleFrameChange)
   textChars.value = textInput.value.split('')
   patternChars.value = patternInput.value.split('')
+  
+  // 加载第一个预设案例
+  if (currentPresets.value.length > 0) {
+    selectedPreset.value = 0
+    loadPreset()
+  } else {
+    runMatch()
+  }
+})
+
+onBeforeUnmount(() => {
+  if (stringInputTimer) clearTimeout(stringInputTimer)
 })
 </script>
 
@@ -323,6 +547,41 @@ onMounted(() => {
   flex: 1;
   padding: 20px;
   overflow: auto;
+}
+
+.main-layout {
+  display: flex;
+  gap: 20px;
+  height: 100%;
+  align-items: flex-start;
+  position: relative;
+}
+
+.left-panel {
+  flex: 1;
+  min-width: 0;
+  margin-right: 420px;
+}
+
+.right-panel {
+  width: 400px;
+  flex-shrink: 0;
+  position: fixed;
+  right: 20px;
+  top: 100px;
+  bottom: 80px;
+  z-index: 100;
+  transition: left 0.3s ease, right 0.3s ease, width 0.3s ease;
+}
+
+.right-panel.fullscreen {
+  position: fixed;
+  left: calc(var(--sidebar-width, 220px) + 20px);
+  right: 20px;
+  top: 80px;
+  bottom: 80px;
+  width: auto;
+  z-index: 200;
 }
 
 .input-card, .info-card {

@@ -16,6 +16,12 @@ export interface SortFrame extends AnimationFrame {
   indices: number[]
   values?: number[]
   description: string
+  highlightLine?: number  // 伪代码高亮行号
+  stats?: {
+    comparisons: number
+    swaps: number
+    arrayAccesses: number
+  }
 }
 
 // 线性表操作帧
@@ -24,6 +30,7 @@ export interface LinearFrame extends AnimationFrame {
   index: number
   value?: any
   description: string
+  highlightLine?: number  // 伪代码高亮行号
 }
 
 // 栈操作帧
@@ -31,6 +38,7 @@ export interface StackFrame extends AnimationFrame {
   type: 'push' | 'pop' | 'peek' | 'highlight' | 'reset'
   value?: any
   description: string
+  highlightLine?: number  // 伪代码高亮行号
 }
 
 // 队列操作帧
@@ -39,6 +47,7 @@ export interface QueueFrame extends AnimationFrame {
   value?: any
   position?: 'front' | 'rear'
   description: string
+  highlightLine?: number  // 伪代码高亮行号
 }
 
 // KMP算法帧
@@ -48,6 +57,7 @@ export interface KMPFrame extends AnimationFrame {
   patternIndex: number
   nextArray?: number[]
   description: string
+  highlightLine?: number  // 伪代码高亮行号
 }
 
 // 树操作帧
@@ -58,6 +68,7 @@ export interface TreeFrame extends AnimationFrame {
   value?: any
   position?: 'left' | 'right'
   description: string
+  highlightLine?: number  // 伪代码高亮行号
 }
 
 // 图操作帧
@@ -70,14 +81,16 @@ export interface GraphFrame extends AnimationFrame {
   weight?: number
   distance?: number
   description: string
+  highlightLine?: number  // 伪代码高亮行号
 }
 
 // 查找操作帧
 export interface SearchFrame extends AnimationFrame {
-  type: 'compare' | 'found' | 'not-found' | 'probe' | 'insert' | 'highlight' | 'reset'
+  type: 'compare' | 'found' | 'not-found' | 'probe' | 'insert' | 'highlight' | 'update' | 'reset'
   index?: number
   key?: any
   description: string
+  highlightLine?: number  // 伪代码高亮行号
 }
 
 // 播放器状态

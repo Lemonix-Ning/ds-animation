@@ -1,6 +1,6 @@
-<template>
+﻿<template>
   <div class="control-bar">
-    <!-- 控制按钮 -->
+    <!-- 鎺у埗鎸夐挳 -->
     <div class="control-buttons">
       <el-button-group>
         <el-tooltip content="重置" placement="top">
@@ -14,7 +14,7 @@
             :icon="isPlaying ? VideoPause : VideoPlay" 
             type="primary"
             @click="isPlaying ? emit('pause') : emit('play')"
-            :disabled="totalFrames === 0"
+            :disabled="totalFrames === 0 && !allowPlayWhenEmpty"
           />
         </el-tooltip>
         <el-tooltip content="前进一步" placement="top">
@@ -25,7 +25,7 @@
     
     <!-- 进度条 -->
     <div class="progress-bar">
-      <span class="progress-label">{{ currentIndex + 1 }} / {{ totalFrames }}</span>
+      <span class="progress-label">{{ progressLabel }}</span>
       <el-slider 
         v-model="progressValue" 
         :max="Math.max(totalFrames - 1, 0)"
@@ -74,7 +74,10 @@ const props = defineProps<{
   isPlaying: boolean
   currentFrame: AnimationFrame | null
   speed: number
+  allowPlayWhenEmpty?: boolean
 }>()
+
+const allowPlayWhenEmpty = computed(() => props.allowPlayWhenEmpty === true)
 
 const emit = defineEmits<{
   play: []
@@ -88,6 +91,10 @@ const emit = defineEmits<{
 
 const progressValue = ref(props.currentIndex)
 const speedValue = ref(props.speed)
+const progressLabel = computed(() => {
+  if (props.totalFrames === 0) return '-- / --'
+  return `${Math.max(props.currentIndex + 1, 0)} / ${props.totalFrames}`
+})
 
 watch(() => props.currentIndex, (val) => {
   progressValue.value = val

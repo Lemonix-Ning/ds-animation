@@ -17,4 +17,12 @@ export * from './tree'
 export * from './graph'
 
 // 查找算法
-export * from './search'
+export {
+	bstSearch,
+	binarySearch,
+	interpolationSearch,
+	jumpSearch,
+	sequentialSearch as searchSequentialSearch,
+	hashInsert,
+	hashSearch
+} from './search'
